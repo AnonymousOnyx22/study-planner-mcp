@@ -1,0 +1,18 @@
+# study-planner-mcp
+
+> Exam study schedules, spaced repetition dates, pomodoro plans and assignment milestones for AI. Works offline. Free and open source MCP server for AI apps (Claude, ChatGPT, Cursor, Copilot and others).
+
+## Setup
+- Run with npx -y study-planner-mcp
+- No environment variables, no network and no account.
+- Dates are YYYY-MM-DD. If start_date is left out it uses today's date.
+
+## Tools
+- make_study_plan
+- spaced_repetition_dates
+- pomodoro_plan
+- assignment_milestones
+
+## Links
+- Source and README, https://github.com/AnonymousOnyx22/study-planner-mcp
+- More free student MCP servers, https://brightspacemcp.com/more-mcps/
