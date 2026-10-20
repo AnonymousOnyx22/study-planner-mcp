@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.2
+
+- Small fixes and clearer docs
+
 ## 0.1.1
 
 - Add self correcting errors and worked example prompts to every tool
