@@ -75,7 +75,7 @@ describe("MCP tools", () => {
     const tools = (await client.listTools()).tools;
     for (const t of tools) {
       expect(t.description ?? "").toMatch(/\S/);
-      expect(t.description).not.toContain("—");
+      expect(t.description).not.toContain("\u2014");
     }
   });
   it("makes a plan through the server", async () => {
