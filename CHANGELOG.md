@@ -7,6 +7,8 @@
 - Rewrote tool descriptions to state the job in plain sentences.
 - Tool errors now say what was missing and include a valid call example. Each tool description carries a worked example prompt.
 - Refreshed llms.txt, glama.json and the server.json description so listings match the current tool set.
+- Updated the development dependencies to TypeScript 7, Vitest 4 and the Node type definitions for Node 26. The build and the test run pass on a clean install.
+- tsconfig.json now names the Node types, so the compiler finds them without relying on automatic type discovery.
 
 ## 0.1.0
 
