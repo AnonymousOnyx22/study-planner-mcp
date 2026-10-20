@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.1
+
+- Add self correcting errors and worked example prompts to every tool
+- Align registry metadata, glama.json and llms.txt with npm listing
+- Rewrite descriptions and keywords around study planner mcp phrase
+- Refresh dependencies and re run the tests before the 0.1.1 bump
+- write the em dash check as an escape
+- Rename and rewrite its tools into explicit study-plan verbs
+- Rewrite README first screen around offline exam planning
+
 ## Unreleased
 
 - Added explicit tool names for the same jobs: `build_study_plan`, `make_spaced_repetition_schedule`, `plan_pomodoro_sessions`, `list_assignment_milestones` and `next_review_dates`.

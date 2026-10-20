@@ -1,6 +1,6 @@
 {
   "name": "study-planner-mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Study planner MCP for exam study schedules, spaced repetition dates, pomodoro plans and assignment milestones. Works offline.",
   "type": "module",
   "main": "build/src/index.js",
