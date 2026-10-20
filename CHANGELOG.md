@@ -6,6 +6,7 @@
 - The original names `make_study_plan`, `spaced_repetition_dates`, `pomodoro_plan` and `assignment_milestones` stay available with unchanged parameters.
 - Rewrote tool descriptions to state the job in plain sentences.
 - Tool errors now say what was missing and include a valid call example. Each tool description carries a worked example prompt.
+- Refreshed llms.txt, glama.json and the server.json description so listings match the current tool set.
 
 ## 0.1.0
 

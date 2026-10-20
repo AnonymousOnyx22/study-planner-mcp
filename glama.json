@@ -1,6 +1,54 @@
 {
   "$schema": "https://glama.ai/mcp/schemas/server.json",
+  "name": "study-planner-mcp",
+  "description": "Exam study schedules, spaced repetition dates, pomodoro plans and assignment milestones for AI. Works offline.",
+  "type": "stdio",
+  "license": "MIT",
+  "repository": {
+    "url": "https://github.com/AnonymousOnyx22/study-planner-mcp",
+    "source": "github"
+  },
+  "homepage": "https://github.com/AnonymousOnyx22/study-planner-mcp",
+  "version": "0.1.0",
   "maintainers": [
     "AnonymousOnyx22"
+  ],
+  "tools": [
+    {
+      "name": "make_study_plan",
+      "description": "Build a day by day study plan for one or more exams. Daily hours are shared across exams by urgency, study stops the day before each exam, and the answer warns when there is not enough time. Example prompt: \"Plan 3 weeks of study for my 4 exams, 90 minutes a day.\""
+    },
+    {
+      "name": "build_study_plan",
+      "description": "Build a day by day study plan for one or more exams. Give each exam date and the hours you have per day, and get dated study sessions split by urgency, with a warning when the hours do not fit. Example prompt: \"Plan 3 weeks of study for my 4 exams, 90 minutes a day.\""
+    },
+    {
+      "name": "spaced_repetition_dates",
+      "description": "List spaced repetition review dates for a topic at expanding intervals, so you revisit it just before you would forget it. Dates on or after the exam are marked to skip. Example prompt: \"When should I review what I learned today for my exam on 2026-11-30?\""
+    },
+    {
+      "name": "make_spaced_repetition_schedule",
+      "description": "Make a spaced repetition schedule for a topic: review dates at expanding intervals from the day you first studied it, with any date on or after the exam marked to skip. Example prompt: \"When should I review what I learned today for my exam on 2026-11-30?\""
+    },
+    {
+      "name": "next_review_dates",
+      "description": "List the next review dates for a topic, computed from the day you first studied it with expanding spaced repetition intervals. Dates on or after the exam are marked to skip. Example prompt: \"When should I review what I learned today for my exam on 2026-11-30?\""
+    },
+    {
+      "name": "pomodoro_plan",
+      "description": "Plan pomodoro sessions: a work and break schedule for a total amount of study time, with a long break after a set number of sessions. Example prompt: \"Plan 3 hours of studying as pomodoro blocks with breaks.\""
+    },
+    {
+      "name": "plan_pomodoro_sessions",
+      "description": "Plan pomodoro sessions for a total amount of study time: work blocks separated by short breaks, with a long break after a set number of sessions. Example prompt: \"Plan 3 hours of studying as pomodoro blocks with breaks.\""
+    },
+    {
+      "name": "assignment_milestones",
+      "description": "List dated milestones that split a big assignment into steps between a start date and the due date. Example prompt: \"Break my 6 hour essay due 2026-11-20 into milestones.\""
+    },
+    {
+      "name": "list_assignment_milestones",
+      "description": "List dated milestones that split a big assignment from a start date to the due date, with default steps for research, outline, draft, revise and proofread. Example prompt: \"Break my 6 hour essay due 2026-11-20 into milestones.\""
+    }
   ]
 }
