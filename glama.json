@@ -1,7 +1,7 @@
 {
   "$schema": "https://glama.ai/mcp/schemas/server.json",
   "name": "study-planner-mcp",
-  "description": "Exam study schedules, spaced repetition dates, pomodoro plans and assignment milestones for AI. Works offline.",
+  "description": "Study planner MCP for exam study schedules, spaced repetition dates, pomodoro plans and assignment milestones. Works offline.",
   "type": "stdio",
   "license": "MIT",
   "repository": {

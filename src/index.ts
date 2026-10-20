@@ -5,7 +5,7 @@ import { createServer, VERSION } from "./server.js";
 function usage(): void {
   console.log(`study-planner-mcp ${VERSION}
 
-Study plans, spaced repetition, pomodoro and assignment milestones for AI apps (MCP). Works offline.
+Study planner MCP: study plans, spaced repetition, pomodoro and assignment milestones for AI apps. Works offline.
 
 Add it to your AI app's MCP config with command "npx" and args ["-y", "study-planner-mcp"].
 
