@@ -3,9 +3,9 @@ const NAMES = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
 
 export function parseDate(s: string): Date {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s.trim());
-  if (!m) throw new Error(`"${s}" is not a date. Use YYYY-MM-DD, for example 2026-12-12.`);
+  if (!m) throw new Error(`"${s}" is not a date. Use YYYY-MM-DD, try 2026-12-12.`);
   const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
-  if (d.getUTCMonth() !== Number(m[2]) - 1) throw new Error(`"${s}" is not a real calendar date.`);
+  if (d.getUTCMonth() !== Number(m[2]) - 1) throw new Error(`"${s}" is not a real calendar date; try 2026-11-14.`);
   return d;
 }
 

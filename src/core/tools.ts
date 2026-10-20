@@ -18,9 +18,26 @@ export interface ToolResult {
   isError?: boolean;
 }
 
+function parseErrorMessage(err: unknown): string {
+  if (err && typeof err === "object" && "issues" in err && Array.isArray((err as { issues: unknown[] }).issues)) {
+    const issues = (err as { issues: { message: string; path?: unknown[] }[] }).issues;
+    return issues
+      .map((i) => (i.path && i.path.length ? `${i.message} at ${i.path.join(".")}` : i.message))
+      .join("\\n");
+  }
+  if (err instanceof Error) return err.message;
+  return String(err);
+}
+
 export async function runTool<Api>(tool: ToolDef<Api>, args: unknown, api: Api): Promise<ToolResult> {
+  const schema = z.object(tool.inputSchema);
+  const parsed = schema.safeParse(args ?? {});
+  if (!parsed.success) {
+    const msg = `Invalid arguments for tool ${tool.name}: ${parseErrorMessage(parsed.error)}`;
+    return { content: [{ type: "text", text: msg }], isError: true };
+  }
   try {
-    const text = await tool.run(args, api);
+    const text = await tool.run(parsed.data, api);
     return { content: [{ type: "text", text }] };
   } catch (err) {
     const msg = err instanceof ApiError ? err.message : `Something went wrong: ${(err as Error).message}`;
