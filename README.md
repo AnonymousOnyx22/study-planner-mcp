@@ -1,14 +1,21 @@
 # Study Planner MCP
 
+Offline exam planning for your AI: no account, no login, no internet needed, nothing stored. Free forever, open source.
+
+Give it your exam dates and how many hours you can study, and get back a day by day plan with spaced repetition review dates, pomodoro blocks with breaks, and dated milestones for a big assignment. The date math is done by tested code, not guessed by the model.
+
+Ask it things like:
+
+- "I have a networking exam on Dec 12 and scripting on Dec 15. I can study 3 hours a day except Sundays. Make me a plan."
+- "When should I review what I learned today so I remember it for my exam on Nov 30?"
+- "Plan 3 hours of studying as pomodoro blocks with breaks."
+- "Break my 6 hour essay due Friday into milestones."
+
+This is a free, open source [MCP](https://modelcontextprotocol.io) server. It works with Claude, ChatGPT, Cursor, VS Code Copilot and any other app that supports MCP. It runs on your computer, so your study data never leaves it.
+
 [![npm](https://img.shields.io/npm/v/study-planner-mcp.svg)](https://www.npmjs.com/package/study-planner-mcp)
 [![downloads](https://img.shields.io/npm/dm/study-planner-mcp.svg)](https://www.npmjs.com/package/study-planner-mcp)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-
-Give your AI your exam dates and how many hours you can study, and get a day by day plan back. It also builds spaced repetition review dates, pomodoro sessions and milestones for big assignments. The date math is done by tested code, not guessed by the model.
-
-This is a free, open source [MCP](https://modelcontextprotocol.io) server. It works with Claude, ChatGPT, Cursor, VS Code Copilot and any other app that supports MCP. It runs on your computer, needs no internet and no login, and stores nothing.
-
-Free forever. No account and no subscription.
 
 ## Quick start
 
@@ -25,16 +32,9 @@ Add this to your AI app's MCP config. For Claude Desktop that is `claude_desktop
 }
 ```
 
-Restart your AI app, then try one of the questions below. You need Node.js 20 or newer.
+Restart your AI app, then try one of the questions at the top of this page. You need Node.js 20 or newer.
 
 For Claude Code, run `claude mcp add study-planner -- npx -y study-planner-mcp`.
-
-## What you can ask
-
-- "I have a networking exam on Dec 12 and scripting on Dec 15. I can study 3 hours a day except Sundays. Make me a plan."
-- "When should I review what I learned today so I remember it for my exam on Nov 30?"
-- "Break my 6 hour essay due Friday into milestones."
-- "Plan 3 hours of studying as pomodoro sessions with breaks."
 
 ## Tools
 
