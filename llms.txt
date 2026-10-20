@@ -8,10 +8,12 @@
 - Dates are YYYY-MM-DD. If start_date is left out it uses today's date.
 
 ## Tools
-- make_study_plan
-- spaced_repetition_dates
-- pomodoro_plan
-- assignment_milestones
+- build_study_plan
+- make_spaced_repetition_schedule
+- plan_pomodoro_sessions
+- list_assignment_milestones
+- next_review_dates
+- make_study_plan, spaced_repetition_dates, pomodoro_plan and assignment_milestones, the same jobs under their original names
 
 ## Links
 - Source and README, https://github.com/AnonymousOnyx22/study-planner-mcp

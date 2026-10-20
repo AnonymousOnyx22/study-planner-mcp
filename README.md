@@ -40,10 +40,13 @@ For Claude Code, run `claude mcp add study-planner -- npx -y study-planner-mcp`.
 
 | Tool | What it does |
 | --- | --- |
-| `make_study_plan` | A day by day study plan for one or more exams, sharing your daily hours by urgency, with a warning if there is not enough time |
-| `spaced_repetition_dates` | Review dates for a topic using expanding intervals, kept before your exam date |
-| `pomodoro_plan` | A work and break schedule for a total amount of study time |
-| `assignment_milestones` | Dated milestones that split a big assignment into research, outline, draft, revise and proofread |
+| `build_study_plan` | A day by day study plan for one or more exams, sharing your daily hours by urgency, with a warning if there is not enough time |
+| `make_spaced_repetition_schedule` | Spaced repetition review dates for a topic at expanding intervals, with dates on or after the exam marked to skip |
+| `plan_pomodoro_sessions` | A work and break schedule for a total amount of study time |
+| `list_assignment_milestones` | Dated milestones that split a big assignment into research, outline, draft, revise and proofread |
+| `next_review_dates` | The next review dates for a topic, computed from the day you first studied it |
+
+The original names `make_study_plan`, `spaced_repetition_dates`, `pomodoro_plan` and `assignment_milestones` do the same four jobs with the same parameters, so existing configs and saved prompts keep working.
 
 ## How the study plan works
 

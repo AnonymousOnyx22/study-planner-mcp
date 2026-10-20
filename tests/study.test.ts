@@ -56,10 +56,27 @@ describe("plan math", () => {
 });
 
 describe("MCP tools", () => {
-  it("lists four read only tools", async () => {
+  it("lists nine read only tools", async () => {
     const tools = (await client.listTools()).tools;
-    expect(tools.map((t) => t.name).sort()).toEqual(["assignment_milestones", "make_study_plan", "pomodoro_plan", "spaced_repetition_dates"]);
+    expect(tools.map((t) => t.name).sort()).toEqual([
+      "assignment_milestones",
+      "build_study_plan",
+      "list_assignment_milestones",
+      "make_spaced_repetition_schedule",
+      "make_study_plan",
+      "next_review_dates",
+      "plan_pomodoro_sessions",
+      "pomodoro_plan",
+      "spaced_repetition_dates",
+    ]);
     for (const t of tools) expect(t.annotations?.readOnlyHint).toBe(true);
+  });
+  it("describes every tool as a study plan job", async () => {
+    const tools = (await client.listTools()).tools;
+    for (const t of tools) {
+      expect(t.description ?? "").toMatch(/\S/);
+      expect(t.description).not.toContain("—");
+    }
   });
   it("makes a plan through the server", async () => {
     const r = await call("make_study_plan", { exams: [{ name: "Networking", date: "2026-12-12", hours_needed: 6 }], start_date: "2026-12-07", hours_per_day: 2, days_off: ["sun"] });
@@ -74,5 +91,19 @@ describe("MCP tools", () => {
   it("answers pomodoro and milestone calls", async () => {
     expect((await call("pomodoro_plan", { total_minutes: 75 })).text).toContain("3 work sessions");
     expect((await call("assignment_milestones", { title: "Essay", due_date: "2026-11-20", estimated_hours: 6, start_date: "2026-11-10" })).text).toContain("Proofread and submit");
+  });
+  it("answers the explicit verb names like the originals", async () => {
+    const built = await call("build_study_plan", { exams: [{ name: "Networking", date: "2026-12-12", hours_needed: 6 }], start_date: "2026-12-07", hours_per_day: 2, days_off: ["sun"] });
+    expect(built.text).toContain("Everything fits.");
+    expect((await call("plan_pomodoro_sessions", { total_minutes: 75 })).text).toContain("3 work sessions");
+    expect((await call("list_assignment_milestones", { title: "Essay", due_date: "2026-11-20", estimated_hours: 6, start_date: "2026-11-10" })).text).toContain("Proofread and submit");
+  });
+  it("gives the same spaced repetition dates under both names", async () => {
+    const args = { topic: "Routing", first_study_date: "2026-11-01", exam_date: "2026-11-10" };
+    const original = (await call("spaced_repetition_dates", args)).text;
+    expect((await call("make_spaced_repetition_schedule", args)).text).toBe(original);
+    expect((await call("next_review_dates", args)).text).toBe(original);
+    expect(original).toContain("2026-11-02 mon");
+    expect(original).toContain("(after the exam, skip)");
   });
 });
