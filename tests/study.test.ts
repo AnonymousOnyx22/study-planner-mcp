@@ -452,6 +452,11 @@ describe("MCP tools", () => {
     const server = JSON.parse(readFileSync(new URL("../server.json", import.meta.url), "utf8"));
     expect(server.description.length).toBeLessThanOrEqual(100);
   });
+  it("says in the server.json description that the server runs offline and needs no account", () => {
+    const server = JSON.parse(readFileSync(new URL("../server.json", import.meta.url), "utf8"));
+    expect(server.description).toContain("offline");
+    expect(server.description).toContain("no account");
+  });
   it("answers the explicit verb names like the originals", async () => {
     const built = await call("build_study_plan", { exams: [{ name: "Networking", date: "2026-12-12", hours_needed: 6 }], start_date: "2026-12-07", hours_per_day: 2, days_off: ["sun"] });
     expect(built.text).toContain("Everything fits.");
@@ -604,6 +609,61 @@ describe("what to study today", () => {
     const r = await call("what_to_study_today", JSON.parse(json![1]));
     expect(r.isError).toBe(false);
     expect(r.text).toBe(answer![1].trimEnd());
+  });
+});
+
+describe("llms.txt worked examples", () => {
+  const llms = readFileSync(new URL("../llms.txt", import.meta.url), "utf8");
+  const section = llms.split("## Worked examples")[1]?.split("\n## ")[0] ?? "";
+  const blocks = section.split("\n### ").slice(1);
+  const toolOf = (block: string): string => /^Tool call: (\S+)$/m.exec(block)?.[1] ?? "";
+  const argsOf = (block: string): string => /```json\n([\s\S]*?)```/.exec(block)?.[1] ?? "";
+  const answerOf = (block: string): string => /```text\n([\s\S]*?)```/.exec(block)?.[1] ?? "";
+
+  it("has a worked example for every tool the file lists", () => {
+    expect(blocks.length).toBeGreaterThanOrEqual(10);
+    const named = new Set(blocks.map(toolOf));
+    for (const name of [
+      "build_study_plan",
+      "make_spaced_repetition_schedule",
+      "next_review_dates",
+      "plan_pomodoro_sessions",
+      "list_assignment_milestones",
+      "export_study_plan_ics",
+      "what_to_study_today",
+    ]) {
+      expect(named.has(name)).toBe(true);
+    }
+  });
+
+  it("shows answers that match what the tools give", async () => {
+    for (const block of blocks) {
+      const name = toolOf(block);
+      const args = argsOf(block);
+      const answer = answerOf(block);
+      expect(name).not.toBe("");
+      expect(args).not.toBe("");
+      expect(answer).not.toBe("");
+      const r = await call(name, JSON.parse(args));
+      expect(r.isError).toBe(false);
+      if (answer.startsWith("BEGIN:VCALENDAR")) {
+        for (const line of answer.split("\n")) {
+          if (line && !line.startsWith("DTSTAMP:")) expect(r.text).toContain(line);
+        }
+      } else {
+        expect(r.text).toBe(answer.trimEnd());
+      }
+    }
+  });
+
+  it("keeps every example on a date of its own, so the answers do not change", () => {
+    for (const block of blocks) {
+      const name = toolOf(block);
+      const args = JSON.parse(argsOf(block));
+      if (name === "build_study_plan" || name === "export_study_plan_ics") expect(args.start_date).toBeTruthy();
+      if (name === "what_to_study_today") expect(args.date).toBeTruthy();
+      if (name === "next_review_dates") expect(args.from_date).toBeTruthy();
+    }
   });
 });
 

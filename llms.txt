@@ -20,6 +20,333 @@
 - export_study_plan_ics: Turn a study plan into an .ics calendar file to import into Google Calendar or Apple Calendar. It builds the same plan as build_study_plan, with the same hours_per_weekday if you set one, and answers with the whole file, so save the answer as plan.ics and open it. Every study session becomes an all day event that shows as free, with the topics of the session in its description when the exam has topics, and every exam becomes an all day event that shows as busy unless include_exams is false. Example prompt: "Export my plan for a networking exam on 2026-12-12, 6 hours, starting 2026-12-07, as an ICS file."
 - what_to_study_today: Answer what to study on one day in a single call: the study sessions your plan gives for that day, with the topic of each session when the exams have topics, plus the spaced repetition reviews that are due that day or are late. Give the same exams and hours you use in build_study_plan, including hours_per_weekday, and the topics you are reviewing with the day you first studied each one. Leave date out and it uses today's date. Example prompt: "What should I study today? I have a networking exam on 2026-12-12 and I studied routing on 2026-11-27."
 - Aliases: make_study_plan, spaced_repetition_dates, pomodoro_plan and assignment_milestones are older names for the tools above. They take the same arguments and give the same answers, so use the names above when you can.
+- Worked examples: the section below has a prompt, a tool call and the answer for every tool.
+
+## Worked examples
+Each example gives the prompt, the tool call and the answer that comes back. Arguments that are left out keep their default values. The dates are fixed, so the answers are the same on every run. The older tool names take the same arguments and give the same answers.
+
+### Two exams and a day off
+
+Prompt: "I have a networking exam on 2026-12-12 and scripting on 2026-12-15. I can study 3 hours a day except Sundays. Make me a plan."
+
+Tool call: build_study_plan
+
+```json
+{
+  "exams": [
+    { "name": "Networking", "date": "2026-12-12", "hours_needed": 20 },
+    { "name": "Scripting", "date": "2026-12-15", "hours_needed": 16 }
+  ],
+  "hours_per_day": 3,
+  "days_off": ["sun"],
+  "start_date": "2026-11-30"
+}
+```
+
+Answer:
+
+```text
+Exams
+- Networking on 2026-12-12 sat, 20h planned
+- Scripting on 2026-12-15 tue, 16h planned
+
+Plan from 2026-11-30
+- 2026-11-30 mon  Networking 2h, Scripting 1h  (3h total)
+- 2026-12-01 tue  Networking 2h, Scripting 1h  (3h total)
+- 2026-12-02 wed  Networking 2h, Scripting 1h  (3h total)
+- 2026-12-03 thu  Networking 2h, Scripting 1h  (3h total)
+- 2026-12-04 fri  Networking 1.5h, Scripting 1.5h  (3h total)
+- 2026-12-05 sat  Networking 2h, Scripting 1h  (3h total)
+- 2026-12-07 mon  Networking 2h, Scripting 1h  (3h total)
+- 2026-12-08 tue  Networking 1.5h, Scripting 1.5h  (3h total)
+- 2026-12-09 wed  Networking 2h, Scripting 1h  (3h total)
+- 2026-12-10 thu  Networking 1.5h, Scripting 1.5h  (3h total)
+- 2026-12-11 fri  Networking 1.5h, Scripting 1.5h  (3h total)
+- 2026-12-12 sat  Scripting 3h  (3h total)
+
+Everything fits.
+```
+
+### An exam with topics
+
+Prompt: "My networking exam on 2026-12-10 covers routing, switching and security. Split the study hours over those topics and make me a plan."
+
+Tool call: build_study_plan
+
+```json
+{
+  "exams": [
+    {
+      "name": "Networking",
+      "date": "2026-12-10",
+      "topics": [
+        { "name": "Routing", "hours_needed": 6 },
+        { "name": "Switching", "hours_needed": 4 },
+        { "name": "Security", "hours_needed": 2 }
+      ]
+    }
+  ],
+  "hours_per_day": 4,
+  "start_date": "2026-12-07"
+}
+```
+
+Answer:
+
+```text
+Exams
+- Networking on 2026-12-10 thu, 12h planned
+  - Routing 6h planned
+  - Switching 4h planned
+  - Security 2h planned
+
+Plan from 2026-12-07
+- 2026-12-07 mon  Networking 4h  (4h total)
+  - Networking: Routing 2h, Switching 1.5h, Security 0.5h
+- 2026-12-08 tue  Networking 4h  (4h total)
+  - Networking: Routing 2h, Switching 1.5h, Security 0.5h
+- 2026-12-09 wed  Networking 4h  (4h total)
+  - Networking: Routing 2h, Switching 1h, Security 1h
+
+Everything fits.
+```
+
+### Different hours for each weekday
+
+Prompt: "I study 2 hours on weekdays and 6 hours on weekends. My networking exam on 2026-12-12 needs 20 hours. Make me a plan."
+
+Tool call: build_study_plan
+
+```json
+{
+  "exams": [{ "name": "Networking", "date": "2026-12-12", "hours_needed": 20 }],
+  "hours_per_weekday": [
+    { "day": "mon", "hours": 2 },
+    { "day": "tue", "hours": 2 },
+    { "day": "wed", "hours": 2 },
+    { "day": "thu", "hours": 2 },
+    { "day": "fri", "hours": 2 },
+    { "day": "sat", "hours": 6 },
+    { "day": "sun", "hours": 6 }
+  ],
+  "start_date": "2026-11-30"
+}
+```
+
+Answer:
+
+```text
+Exams
+- Networking on 2026-12-12 sat, 20h planned
+
+Plan from 2026-11-30
+- 2026-11-30 mon  Networking 2h  (2h total)
+- 2026-12-01 tue  Networking 2h  (2h total)
+- 2026-12-02 wed  Networking 2h  (2h total)
+- 2026-12-03 thu  Networking 2h  (2h total)
+- 2026-12-04 fri  Networking 2h  (2h total)
+- 2026-12-05 sat  Networking 6h  (6h total)
+- 2026-12-06 sun  Networking 4h  (4h total)
+
+Everything fits.
+```
+
+### When the hours do not fit
+
+Prompt: "My networking exam on 2026-12-12 needs 20 hours. I can only study 2 hours a day from 2026-12-10. Make me a plan."
+
+Tool call: build_study_plan
+
+```json
+{
+  "exams": [{ "name": "Networking", "date": "2026-12-12", "hours_needed": 20 }],
+  "hours_per_day": 2,
+  "start_date": "2026-12-10"
+}
+```
+
+Answer:
+
+```text
+Exams
+- Networking on 2026-12-12 sat, 20h planned
+
+Plan from 2026-12-10
+- 2026-12-10 thu  Networking 2h  (2h total)
+- 2026-12-11 fri  Networking 2h  (2h total)
+
+Not enough time. Networking is 16h short. Add study days, raise hours per day or hours per weekday, or lower the hours needed.
+```
+
+### Review dates for a topic
+
+Prompt: "I studied routing on 2026-11-27. When should I review it for my exam on 2026-12-12?"
+
+Tool call: make_spaced_repetition_schedule
+
+```json
+{
+  "topic": "Routing",
+  "first_study_date": "2026-11-27",
+  "exam_date": "2026-12-12"
+}
+```
+
+Answer:
+
+```text
+Review "Routing" starting from 2026-11-27 fri
+- Day 1, 2026-11-28 sat
+- Day 3, 2026-11-30 mon
+- Day 7, 2026-12-04 fri
+- Day 14, 2026-12-11 fri
+- Day 30, 2026-12-27 sun (after the exam, skip)
+```
+
+### The next review for a topic
+
+Prompt: "I studied routing on 2026-11-27. When is the next review for my exam on 2026-12-12? Today is 2026-11-29."
+
+Tool call: next_review_dates
+
+```json
+{
+  "topic": "Routing",
+  "first_study_date": "2026-11-27",
+  "exam_date": "2026-12-12",
+  "from_date": "2026-11-29"
+}
+```
+
+Answer:
+
+```text
+Next review for "Routing": 2026-11-30 mon, the 2nd review, in 1 day.
+1 review has passed.
+```
+
+### Study blocks with breaks
+
+Prompt: "Plan 90 minutes of studying as pomodoro blocks with breaks."
+
+Tool call: plan_pomodoro_sessions
+
+```json
+{
+  "total_minutes": 90
+}
+```
+
+Answer:
+
+```text
+4 work sessions
+- 0-25 min, work (25 min)
+- 25-30 min, short break (5 min)
+- 30-55 min, work (25 min)
+- 55-60 min, short break (5 min)
+- 60-85 min, work (25 min)
+- 85-90 min, short break (5 min)
+- 90-105 min, work (15 min)
+
+Total time with breaks is 105 minutes.
+```
+
+### Milestones for a big assignment
+
+Prompt: "Break my 6 hour history essay due 2026-11-20 into milestones. I start on 2026-11-09."
+
+Tool call: list_assignment_milestones
+
+```json
+{
+  "title": "History essay",
+  "due_date": "2026-11-20",
+  "estimated_hours": 6,
+  "start_date": "2026-11-09"
+}
+```
+
+Answer:
+
+```text
+History essay, due 2026-11-20 fri, about 6h of work
+- Finish by 2026-11-11 wed, Research (1.5h)
+- Finish by 2026-11-12 thu, Outline (0.5h)
+- Finish by 2026-11-16 mon, First draft (2h)
+- Finish by 2026-11-18 wed, Revise (1h)
+- Finish by 2026-11-19 thu, Proofread and submit (0.5h)
+```
+
+### What to study on one day
+
+Prompt: "What should I study on 2026-11-30? My networking exam is on 2026-12-12 and I studied routing on 2026-11-27."
+
+Tool call: what_to_study_today
+
+```json
+{
+  "date": "2026-11-30",
+  "exams": [{ "name": "Networking", "date": "2026-12-12", "hours_needed": 12 }],
+  "hours_per_day": 2,
+  "reviews": [{ "topic": "Routing", "first_study_date": "2026-11-27" }]
+}
+```
+
+Answer:
+
+```text
+Today 2026-11-30 mon
+
+Study sessions, 2h total
+- Networking 2h
+
+Reviews due today
+- Routing, 2nd review
+
+Reviews to catch up
+- Routing, 1st review, 2 days late (due 2026-11-28)
+
+Next reviews
+- Routing on 2026-12-04 fri, 3rd review
+
+Next exam: Networking on 2026-12-12 sat, 12 days left.
+```
+
+### A calendar file
+
+Prompt: "Export my plan for a networking exam on 2026-12-12, 6 hours, starting 2026-12-07, as an ICS file."
+
+Tool call: export_study_plan_ics
+
+```json
+{
+  "exams": [{ "name": "Networking", "date": "2026-12-12", "hours_needed": 6 }],
+  "hours_per_day": 2,
+  "days_off": ["sun"],
+  "start_date": "2026-12-07"
+}
+```
+
+Answer: the whole .ics file. These are its first lines, and two more study events and one exam event follow in the same shape. DTSTAMP is the moment of the export, so yours will differ.
+
+```text
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//AnonymousOnyx22//Study Planner MCP//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:Study plan
+BEGIN:VEVENT
+UID:2026-12-07-networking-study@study-planner-mcp
+DTSTAMP:20261021T113158Z
+DTSTART;VALUE=DATE:20261207
+DTEND;VALUE=DATE:20261208
+SUMMARY:Study: Networking 2h
+DESCRIPTION:Networking\, 2h of study. Day total 2h. Exam on 2026-12-12 sat.
+TRANSP:TRANSPARENT
+END:VEVENT
+```
 
 ## Links
 - Source and README, https://github.com/AnonymousOnyx22/study-planner-mcp
