@@ -12,15 +12,29 @@ Ask it things like:
 - "Break my 6 hour essay due Friday into milestones."
 - "Give me this plan as an .ics file so I can import it into Google Calendar."
 
-This is a free, open source [MCP](https://modelcontextprotocol.io) server. It works with Claude, ChatGPT, Cursor, VS Code Copilot and any other app that supports MCP. It runs on your computer, so your study data never leaves it.
+This is a free, open source [MCP](https://modelcontextprotocol.io) server. It works with Claude, ChatGPT, Cursor, VS Code Copilot and any other app that supports MCP. It runs on your computer, so your study data never leaves it. The [install steps](#install) below have the exact config for each app.
 
 [![npm](https://img.shields.io/npm/v/study-planner-mcp.svg)](https://www.npmjs.com/package/study-planner-mcp)
 [![downloads](https://img.shields.io/npm/dm/study-planner-mcp.svg)](https://www.npmjs.com/package/study-planner-mcp)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-## Quick start
+## Install
 
-Add this to your AI app's MCP config. For Claude Desktop that is `claude_desktop_config.json`.
+The server runs on your computer through `npx`, so you need Node.js 20 or newer. There is no account, no key and nothing to sign in to.
+
+Every app reads its MCP config from its own file, so pick yours:
+
+- [Claude Desktop](#claude-desktop)
+- [Claude Code](#claude-code)
+- [ChatGPT](#chatgpt)
+- [Cursor](#cursor)
+- [VS Code Copilot](#vs-code-copilot)
+
+All of them start the same server the same way. The only difference is where the JSON goes.
+
+### Claude Desktop
+
+Add this to `claude_desktop_config.json`:
 
 ```json
 {
@@ -33,9 +47,83 @@ Add this to your AI app's MCP config. For Claude Desktop that is `claude_desktop
 }
 ```
 
-Restart your AI app, then try one of the questions at the top of this page. You need Node.js 20 or newer.
+Restart Claude Desktop after you save the file.
 
-For Claude Code, run `claude mcp add study-planner -- npx -y study-planner-mcp`.
+### Claude Code
+
+Run this in a terminal:
+
+```bash
+claude mcp add study-planner -- npx -y study-planner-mcp
+```
+
+### ChatGPT
+
+The ChatGPT desktop app can start a server that runs on your machine. Open Settings, turn on developer mode, add a connector and paste this JSON:
+
+```json
+{
+  "mcpServers": {
+    "study-planner": {
+      "command": "npx",
+      "args": ["-y", "study-planner-mcp"]
+    }
+  }
+}
+```
+
+The ChatGPT website talks to servers over the web, so use the desktop app for a server that runs on your computer.
+
+### Cursor
+
+Cursor reads `mcp.json` from the project folder at `.cursor/mcp.json`, or from your home folder at `~/.cursor/mcp.json` if you want the server in every project. On Windows the home folder file is `%USERPROFILE%\.cursor\mcp.json`.
+
+```json
+{
+  "mcpServers": {
+    "study-planner": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "study-planner-mcp"]
+    }
+  }
+}
+```
+
+Restart Cursor after you save the file. The Customize page in the sidebar lists the server once it starts, and you can turn it on or off there.
+
+### VS Code Copilot
+
+Put this in `.vscode/mcp.json` in your project folder, or in the `mcp.json` file in your user profile:
+
+```json
+{
+  "servers": {
+    "study-planner": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "study-planner-mcp"]
+    }
+  }
+}
+```
+
+VS Code also reads a portable `.mcp.json` file in the project root. That file uses the name `mcpServers` instead of `servers`:
+
+```json
+{
+  "mcpServers": {
+    "study-planner": {
+      "command": "npx",
+      "args": ["-y", "study-planner-mcp"]
+    }
+  }
+}
+```
+
+Restart VS Code after you save the file.
+
+After any of these, try one of the questions at the top of this page.
 
 ## Tools
 

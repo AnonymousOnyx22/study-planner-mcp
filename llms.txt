@@ -6,6 +6,7 @@
 - Run with npx -y study-planner-mcp
 - No environment variables, no network and no account.
 - Dates are YYYY-MM-DD. If start_date is left out it uses today's date.
+- Config file per client: Claude Desktop uses mcpServers, Cursor uses mcpServers in .cursor/mcp.json or ~/.cursor/mcp.json, VS Code Copilot uses servers in .vscode/mcp.json, and the ChatGPT desktop app takes the same mcpServers JSON as a connector.
 
 ## Tools
 - build_study_plan: Build a day by day study plan for one or more exams. Give each exam date and the hours you have per day, and get dated study sessions split by urgency, with a warning when the hours do not fit. Example prompt: "Plan 3 weeks of study for my 4 exams, 90 minutes a day."

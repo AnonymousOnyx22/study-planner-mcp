@@ -232,3 +232,40 @@ describe("MCP tools", () => {
     expect(original).toContain("(after the exam, skip)");
   });
 });
+
+describe("README install snippets", () => {
+  const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
+  const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+  const install = readme.split("## Install")[1]?.split("\n## ")[0] ?? "";
+
+  it("covers every client the README says it works with", () => {
+    expect(install).not.toBe("");
+    for (const client of ["Claude Desktop", "Claude Code", "ChatGPT", "Cursor", "Copilot"]) {
+      expect(install).toContain(client);
+    }
+  });
+
+  it("starts the same server in every snippet", () => {
+    const blocks = [...install.matchAll(/```json\n([\s\S]*?)```/g)].map((m) => m[1]);
+    expect(blocks.length).toBeGreaterThanOrEqual(4);
+    let vsCodeStyle = 0;
+    for (const block of blocks) {
+      const config = JSON.parse(block);
+      const servers = config.mcpServers ?? config.servers;
+      expect(servers).toBeTruthy();
+      if (config.servers) vsCodeStyle++;
+      for (const entry of Object.values(servers) as { command: string; args: string[] }[]) {
+        expect(entry.command).toBe("npx");
+        expect(entry.args).toContain("-y");
+        expect(entry.args).toContain(pkg.name);
+      }
+    }
+    expect(vsCodeStyle).toBe(1);
+  });
+
+  it("keeps the package name in every snippet the same as package.json", () => {
+    const names = [...readme.matchAll(/"args":\s*\[[^\]]*\]/g)].map((m) => m[0]);
+    expect(names.length).toBeGreaterThan(0);
+    for (const line of names) expect(line).toContain(`"${pkg.name}"`);
+  });
+});
