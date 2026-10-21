@@ -1,6 +1,6 @@
 # study-planner-mcp
 
-> Study planner MCP for exam study schedules, spaced repetition dates, pomodoro plans and assignment milestones. Works offline. Free and open source MCP server for AI apps (Claude, ChatGPT, Cursor, Copilot and others).
+> Study planner MCP server. Give it your exam dates and daily study hours and it builds an exam schedule, a study timetable with spaced repetition review dates, pomodoro blocks and assignment milestones. Runs offline, no account. Free and open source, works with Claude, ChatGPT, Cursor, Copilot and other MCP clients.
 
 ## Setup
 - Run with npx -y study-planner-mcp

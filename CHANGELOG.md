@@ -16,6 +16,7 @@
 
 ## Unreleased
 
+- Tuned the npm keywords: dropped the duplicated protocol tags for the phrases people search, like exam schedule, study timetable and revision planner, and rewrote the package description in plain sentences.
 - Added explicit tool names for the same jobs: `build_study_plan`, `make_spaced_repetition_schedule`, `plan_pomodoro_sessions`, `list_assignment_milestones` and `next_review_dates`.
 - The original names `make_study_plan`, `spaced_repetition_dates`, `pomodoro_plan` and `assignment_milestones` stay available with unchanged parameters.
 - Rewrote tool descriptions to state the job in plain sentences.
