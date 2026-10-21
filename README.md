@@ -8,6 +8,7 @@ Ask it things like:
 
 - "I have a networking exam on Dec 12 and scripting on Dec 15. I can study 3 hours a day except Sundays. Make me a plan."
 - "I have a networking exam on Dec 12. I study 2 hours on weekdays and 6 hours on weekends. Make me a plan."
+- "My networking exam covers routing, switching and security. Split the study hours over those topics and tell me what to study today."
 - "When should I review what I learned today so I remember it for my exam on Nov 30?"
 - "What should I study today? My networking exam is on Dec 12 and I studied routing last Friday."
 - "Plan 3 hours of studying as pomodoro blocks with breaks."
@@ -131,19 +132,21 @@ After any of these, try one of the questions at the top of this page.
 
 | Tool | What it does |
 | --- | --- |
-| `build_study_plan` | A day by day study plan for one or more exams, sharing the hours of each weekday by urgency, with a warning if there is not enough time |
+| `build_study_plan` | A day by day study plan for one or more exams, sharing the hours of each weekday by urgency, with a warning if there is not enough time, and the topic of each day when an exam has topics |
 | `make_spaced_repetition_schedule` | Spaced repetition review dates for a topic at expanding intervals, with dates on or after the exam marked to skip |
 | `plan_pomodoro_sessions` | A work and break schedule for a total amount of study time |
 | `list_assignment_milestones` | Dated milestones that split a big assignment into research, outline, draft, revise and proofread |
 | `next_review_dates` | The next review dates for a topic, computed from the day you first studied it |
 | `export_study_plan_ics` | The same plan as an `.ics` calendar file, with one all day event per study session and one per exam, ready to open or import into Google Calendar or Apple Calendar |
-| `what_to_study_today` | What to study on one day: the study sessions from your plan for that day, plus the spaced repetition reviews that are due that day or are late |
+| `what_to_study_today` | What to study on one day: the study sessions from your plan for that day, the topic of each session when the exams have topics, plus the spaced repetition reviews that are due that day or are late |
 
 The original names `make_study_plan`, `spaced_repetition_dates`, `pomodoro_plan` and `assignment_milestones` do the same four jobs with the same parameters, so existing configs and saved prompts keep working.
 
 ## How the study plan works
 
 Each day has the hours of that weekday, which is `hours_per_day` unless you set `hours_per_weekday`. Those hours are shared across the exams that still need work, weighted by how many hours are left divided by how many days remain, so closer and bigger exams get more time. Study stops the day before each exam. If the hours do not fit, the plan says how many are short instead of pretending. Dates are plain calendar dates, so time zones never shift a day.
+
+When an exam has topics, the hours the exam gets on a day are split over its topics in proportion to the hours each topic still needs. That way the plan answers which topic to study, not only which exam.
 
 ## Different hours each day of the week
 
@@ -187,6 +190,85 @@ Everything fits.
 ```
 
 Saturday carries the 6 hours, and Sunday gets the 4 hours that are left over.
+
+## Hours per topic
+
+Give an exam `topics` and the plan says which topic to study on each day, not just which exam. The hours of a day are split over the topics of the exam in proportion to the hours each topic still needs, so the topic that needs the most work gets the most time. Leave `hours_needed` off a topic and the hours of the exam are split evenly over the topics that have no hours of their own.
+
+Tool call:
+
+```json
+{
+  "exams": [
+    {
+      "name": "Networking",
+      "date": "2026-12-10",
+      "topics": [
+        { "name": "Routing", "hours_needed": 6 },
+        { "name": "Switching", "hours_needed": 4 },
+        { "name": "Security", "hours_needed": 2 }
+      ]
+    }
+  ],
+  "hours_per_day": 4,
+  "start_date": "2026-12-07"
+}
+```
+
+The answer:
+
+```text
+Exams
+- Networking on 2026-12-10 thu, 12h planned
+  - Routing 6h planned
+  - Switching 4h planned
+  - Security 2h planned
+
+Plan from 2026-12-07
+- 2026-12-07 mon  Networking 4h  (4h total)
+  - Networking: Routing 2h, Switching 1.5h, Security 0.5h
+- 2026-12-08 tue  Networking 4h  (4h total)
+  - Networking: Routing 2h, Switching 1.5h, Security 0.5h
+- 2026-12-09 wed  Networking 4h  (4h total)
+  - Networking: Routing 2h, Switching 1h, Security 1h
+
+Everything fits.
+```
+
+`what_to_study_today` gives the same topics for one day, so one call tells you what to study today and which part of the exam it belongs to.
+
+Tool call:
+
+```json
+{
+  "date": "2026-12-08",
+  "exams": [
+    {
+      "name": "Networking",
+      "date": "2026-12-10",
+      "topics": [
+        { "name": "Routing", "hours_needed": 6 },
+        { "name": "Switching", "hours_needed": 4 },
+        { "name": "Security", "hours_needed": 2 }
+      ]
+    }
+  ],
+  "hours_per_day": 4,
+  "start_date": "2026-12-07"
+}
+```
+
+The answer:
+
+```text
+Today 2026-12-08 tue
+
+Study sessions, 4h total
+- Networking 4h
+  - Routing 2h, Switching 1.5h, Security 0.5h
+
+Next exam: Networking on 2026-12-10 thu, 2 days left.
+```
 
 ## Example plan
 

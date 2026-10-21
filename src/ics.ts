@@ -67,7 +67,11 @@ export function studyPlanIcs(plan: Plan, opts: IcsOptions = {}): string {
   for (const day of plan.days) {
     const total = day.items.reduce((s, i) => s + i.hours, 0);
     for (const item of day.items) {
-      const bits = [`${item.name}, ${item.hours}h of study. Day total ${total}h.`];
+      const bits = [`${item.name}, ${item.hours}h of study.`];
+      if (item.topics && item.topics.length > 0) {
+        bits.push(`Topics: ${item.topics.map((t) => `${t.name} ${t.hours}h`).join(", ")}.`);
+      }
+      bits.push(`Day total ${total}h.`);
       const exam = exams.get(item.name);
       if (exam) bits.push(`Exam on ${label(exam.date)}.`);
       events.push({

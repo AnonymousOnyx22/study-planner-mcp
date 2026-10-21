@@ -50,10 +50,24 @@ function numberField(name: string, example = 3, min = 0, max?: number, integer =
 
 const EXAM_HINT = 'try exams: [{name: "Networking", date: "2026-12-12", hours_needed: 6}]';
 
+const topicItem = z.object({
+  name: textField("name", "Routing").describe("Name of the topic inside the exam."),
+  hours_needed: numberField("hours_needed", 4, 0).optional().describe("Study hours for this topic. Leave it out to split the exam hours evenly over the topics."),
+});
+
 const examItem = z.object({
   name: textField("name", "Networking"),
   date: dateField("exam_date"),
   hours_needed: numberField("hours_needed", 10, 0).optional().describe("Study hours you want to put in. Defaults to 10."),
+  topics: z
+    .array(topicItem, {
+      error: (iss) =>
+        iss.input === undefined
+          ? 'topics is required; try topics: [{name: "Routing", hours_needed: 4}]'
+          : 'topics must be a list of topics; try topics: [{name: "Routing", hours_needed: 4}]',
+    })
+    .optional()
+    .describe("Topics of the exam with their own hours, so the plan can say which topic to study on each day."),
 });
 
 /** The list of exams, shared by the tools that plan study time. */
@@ -121,7 +135,7 @@ function planFields() {
   return {
     exams: examList(true)
       .min(1, { error: `exams must have at least 1 exam; ${EXAM_HINT}` })
-      .describe("Exams with name, date and optional hours needed."),
+      .describe("Exams with name, date, optional hours needed and optional topics with their own hours."),
     hours_per_day: hoursPerDay(),
     hours_per_weekday: hoursPerWeekday(),
     days_off: daysOff(),
@@ -140,21 +154,49 @@ function ordinal(n: number): string {
   return `${n}th`;
 }
 
+/** The topic lines under a study day, one line for each exam that has topics. */
+function dayTopicLines(items: { name: string; topics?: { name: string; hours: number }[] }[]): string[] {
+  const lines: string[] = [];
+  for (const item of items) {
+    if (!item.topics || item.topics.length === 0) continue;
+    lines.push(`  - ${item.name}: ${item.topics.map((t) => `${t.name} ${t.hours}h`).join(", ")}`);
+  }
+  return lines;
+}
+
+/** The topic lines under one exam of a day. */
+function itemTopicLines(item: { name: string; hours: number; topics?: { name: string; hours: number }[] }): string[] {
+  if (!item.topics || item.topics.length === 0) return [];
+  return [`  - ${item.topics.map((t) => `${t.name} ${t.hours}h`).join(", ")}`];
+}
+
 const core: ToolDef<Api>[] = [
   {
     name: "make_study_plan",
     title: "Make a study plan",
     description:
-      "Build a day by day study plan for one or more exams. Daily hours are shared across exams by urgency, study stops the day before each exam, and the answer warns when there is not enough time. Set hours_per_weekday when your weekdays and your weekend differ. Example prompt: \"Plan 3 weeks of study for my 4 exams, 90 minutes a day.\"",
+      "Build a day by day study plan for one or more exams. Daily hours are shared across exams by urgency, study stops the day before each exam, and the answer warns when there is not enough time. Set hours_per_weekday when your weekdays and your weekend differ, and give an exam topics with their own hours to get the topic of each day as well. Example prompt: \"Plan 3 weeks of study for my 4 exams, 90 minutes a day.\"",
     inputSchema: planFields(),
     run: async (a) => {
       const start = a.start_date ? parseDate(a.start_date) : today();
       const plan = studyPlan(a.exams, start, a.hours_per_day, a.days_off.map(weekdayIndex), weekdayHours(a.hours_per_weekday));
-      const lines = plan.days.map((d) => `${label(d.date)}  ${d.items.map((i) => `${i.name} ${i.hours}h`).join(", ")}  (${d.items.reduce((s, i) => s + i.hours, 0)}h total)`);
-      const exams = plan.exams.map((e) => `${e.name} on ${label(e.date)}, ${e.need}h planned`);
+      const lines = plan.days.map((d) => {
+        const head = `${label(d.date)}  ${d.items.map((i) => `${i.name} ${i.hours}h`).join(", ")}  (${d.items.reduce((s, i) => s + i.hours, 0)}h total)`;
+        return [head, ...dayTopicLines(d.items)].join("\n");
+      });
+      const exams = plan.exams.map((e) => {
+        const head = `${e.name} on ${label(e.date)}, ${e.need}h planned`;
+        if (!e.topics || e.topics.length === 0) return head;
+        return [head, ...e.topics.map((t) => `  - ${t.name} ${t.need}h planned`)].join("\n");
+      });
       let out = `Exams\n${bullets(exams)}\n\nPlan from ${fmt(start)}\n${bullets(lines)}`;
       if (plan.short.length) {
-        out += `\n\nNot enough time. ${plan.short.map((s) => `${s.name} is ${s.hours}h short`).join(", ")}. Add study days, raise hours per day or hours per weekday, or lower the hours needed.`;
+        const short = plan.short.map((s) => {
+          const head = `${s.name} is ${s.hours}h short`;
+          if (!s.topics || s.topics.length === 0) return head;
+          return `${head}: ${s.topics.map((t) => `${t.name} ${t.hours}h short`).join(", ")}`;
+        });
+        out += `\n\nNot enough time. ${short.join(", ")}. Add study days, raise hours per day or hours per weekday, or lower the hours needed.`;
       } else {
         out += "\n\nEverything fits.";
       }
@@ -248,7 +290,7 @@ const core: ToolDef<Api>[] = [
     name: "export_study_plan_ics",
     title: "Export study plan as ICS",
     description:
-      "Turn a study plan into an .ics calendar file to import into Google Calendar or Apple Calendar. It builds the same plan as build_study_plan, with the same hours_per_weekday if you set one, and answers with the whole file, so save the answer as plan.ics and open it. Every study session becomes an all day event that shows as free, and every exam becomes an all day event that shows as busy unless include_exams is false. Example prompt: \"Export my plan for a networking exam on 2026-12-12, 6 hours, starting 2026-12-07, as an ICS file.\"",
+      "Turn a study plan into an .ics calendar file to import into Google Calendar or Apple Calendar. It builds the same plan as build_study_plan, with the same hours_per_weekday if you set one, and answers with the whole file, so save the answer as plan.ics and open it. Every study session becomes an all day event that shows as free, with the topics of the session in its description when the exam has topics, and every exam becomes an all day event that shows as busy unless include_exams is false. Example prompt: \"Export my plan for a networking exam on 2026-12-12, 6 hours, starting 2026-12-07, as an ICS file.\"",
     inputSchema: {
       ...planFields(),
       include_exams: z
@@ -266,7 +308,7 @@ const core: ToolDef<Api>[] = [
     name: "what_to_study_today",
     title: "What to study today",
     description:
-      "Answer what to study on one day in a single call: the study sessions your plan gives for that day, plus the spaced repetition reviews that are due that day or are late. Give the same exams and hours you use in build_study_plan, including hours_per_weekday, and the topics you are reviewing with the day you first studied each one. Example prompt: \"What should I study today? I have a networking exam on 2026-12-12 and I studied routing on 2026-11-27.\"",
+      "Answer what to study on one day in a single call: the study sessions your plan gives for that day, with the topic of each session when the exams have topics, plus the spaced repetition reviews that are due that day or are late. Give the same exams and hours you use in build_study_plan, including hours_per_weekday, and the topics you are reviewing with the day you first studied each one. Example prompt: \"What should I study today? I have a networking exam on 2026-12-12 and I studied routing on 2026-11-27.\"",
     inputSchema: {
       date: dateField("date").optional().describe("The day to show. Defaults to today."),
       exams: examList(false).optional().describe("Exams with name, date and optional hours needed. Leave it out to show reviews only."),
@@ -309,16 +351,21 @@ const core: ToolDef<Api>[] = [
         const plan = planForDay(exams, start, day, a.hours_per_day, a.days_off.map(weekdayIndex), weekdayHours(a.hours_per_weekday));
         if (plan.day) {
           const total = plan.day.items.reduce((s, i) => s + i.hours, 0);
-          out.push("", `Study sessions, ${total}h total`, bullets(plan.day.items.map((i) => `${i.name} ${i.hours}h`)));
+          out.push("", `Study sessions, ${total}h total`, bullets(plan.day.items.map((i) => [i.name + " " + i.hours + "h", ...itemTopicLines(i)].join("\n"))));
         } else if (plan.next) {
           const total = plan.next.items.reduce((s, i) => s + i.hours, 0);
           const when = start.getTime() > day.getTime() ? `The plan starts on ${label(plan.next.date)}` : `Next study day ${label(plan.next.date)}`;
-          out.push("", `No study session today. ${when}, ${total}h total`, bullets(plan.next.items.map((i) => `${i.name} ${i.hours}h`)));
+          out.push("", `No study session today. ${when}, ${total}h total`, bullets(plan.next.items.map((i) => [i.name + " " + i.hours + "h", ...itemTopicLines(i)].join("\n"))));
         } else {
           out.push("", "No study session today.");
         }
         if (plan.short.length) {
-          out.push("", `Not enough time. ${plan.short.map((s) => `${s.name} is ${s.hours}h short`).join(", ")}. Add study days, raise hours per day or hours per weekday, or lower the hours needed.`);
+          const short = plan.short.map((s) => {
+            const head = `${s.name} is ${s.hours}h short`;
+            if (!s.topics || s.topics.length === 0) return head;
+            return `${head}: ${s.topics.map((t) => `${t.name} ${t.hours}h short`).join(", ")}`;
+          });
+          out.push("", `Not enough time. ${short.join(", ")}. Add study days, raise hours per day or hours per weekday, or lower the hours needed.`);
         }
         const upcoming = plan.exams
           .filter((e) => e.date.getTime() >= day.getTime())
@@ -375,7 +422,7 @@ export const tools: ToolDef<Api>[] = [
     "make_study_plan",
     "build_study_plan",
     "Build a study plan",
-    "Build a day by day study plan for one or more exams. Give each exam date and the hours you have per day, or set different hours for each weekday with hours_per_weekday, and get dated study sessions split by urgency, with a warning when the hours do not fit. Example prompt: \"Plan 3 weeks of study for my 4 exams, 90 minutes a day.\"",
+    "Build a day by day study plan for one or more exams. Give each exam date and the hours you have per day, or set different hours for each weekday with hours_per_weekday, and get dated study sessions split by urgency, with a warning when the hours do not fit. Give an exam topics with their own hours and the plan names the topic of each day. Example prompt: \"Plan 3 weeks of study for my 4 exams, 90 minutes a day.\"",
   ),
   alias(
     "spaced_repetition_dates",

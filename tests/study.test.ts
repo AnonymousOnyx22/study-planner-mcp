@@ -126,6 +126,48 @@ describe("plan math", () => {
   });
 });
 
+describe("topics inside an exam", () => {
+  it("takes the hours of the exam from its topics", () => {
+    const plan = studyPlan([{ name: "Net", date: "2026-12-12", topics: [{ name: "Routing", hours_needed: 6 }, { name: "Security", hours_needed: 4 }] }], parseDate("2026-12-07"), 2, [0]);
+    expect(plan.exams[0].need).toBe(10);
+    expect(plan.exams[0].topics).toEqual([{ name: "Routing", need: 6 }, { name: "Security", need: 4 }]);
+  });
+  it("splits the hours of a day over the topics", () => {
+    const plan = studyPlan([{ name: "Net", date: "2026-12-12", topics: [{ name: "Routing", hours_needed: 6 }, { name: "Security", hours_needed: 4 }] }], parseDate("2026-12-07"), 2, [0]);
+    expect(plan.days[0].items[0]).toEqual({ name: "Net", hours: 2, topics: [{ name: "Routing", hours: 1 }, { name: "Security", hours: 1 }] });
+    const total = plan.days.reduce((s, d) => s + d.items.reduce((x, i) => x + i.hours, 0), 0);
+    expect(total).toBe(10);
+    expect(plan.short).toEqual([]);
+  });
+  it("gives the same topic hours as the plan adds up to", () => {
+    const plan = studyPlan([{ name: "Net", date: "2026-12-12", topics: [{ name: "Routing", hours_needed: 6 }, { name: "Security", hours_needed: 4 }] }], parseDate("2026-12-07"), 3, []);
+    const planned = plan.days.flatMap((d) => d.items.flatMap((i) => i.topics ?? []).map((t) => `${t.name} ${t.hours}h`));
+    expect(planned.reduce((s, p) => s + Number(p.split(" ")[1].replace("h", "")), 0)).toBe(10);
+    const perTopic = (name: string) => plan.days.flatMap((d) => d.items.flatMap((i) => i.topics ?? []).filter((t) => t.name === name).map((t) => t.hours)).reduce((s, h) => s + h, 0);
+    expect(perTopic("Routing")).toBe(6);
+    expect(perTopic("Security")).toBe(4);
+  });
+  it("splits the exam hours evenly over the topics that have no hours", () => {
+    const plan = studyPlan([{ name: "Net", date: "2026-12-12", hours_needed: 9, topics: [{ name: "Routing" }, { name: "Switching" }, { name: "Security" }] }], parseDate("2026-12-07"), 2, [0]);
+    expect(plan.exams[0].topics).toEqual([{ name: "Routing", need: 3 }, { name: "Switching", need: 3 }, { name: "Security", need: 3 }]);
+    expect(plan.short).toEqual([]);
+  });
+  it("says when the exam hours and the topic hours do not match", () => {
+    expect(() => studyPlan([{ name: "Net", date: "2026-12-12", hours_needed: 20, topics: [{ name: "Routing", hours_needed: 6 }] }], parseDate("2026-12-07"), 2, [])).toThrow("add up to 6h");
+  });
+  it("says when a topic has no hours and the exam has none either", () => {
+    expect(() => studyPlan([{ name: "Net", date: "2026-12-12", topics: [{ name: "Routing" }] }], parseDate("2026-12-07"), 2, [])).toThrow("Give hours for every topic");
+  });
+  it("says when a topic is given twice", () => {
+    expect(() => studyPlan([{ name: "Net", date: "2026-12-12", topics: [{ name: "Routing", hours_needed: 2 }, { name: "Routing", hours_needed: 2 }] }], parseDate("2026-12-07"), 2, [])).toThrow("twice");
+  });
+  it("reports the topics that are short", () => {
+    const plan = studyPlan([{ name: "Net", date: "2026-12-10", topics: [{ name: "Routing", hours_needed: 6 }, { name: "Security", hours_needed: 4 }] }], parseDate("2026-12-07"), 2, []);
+    expect(plan.short[0].name).toBe("Net");
+    expect(plan.short[0].topics?.map((t) => t.name)).toEqual(["Routing", "Security"]);
+  });
+});
+
 describe("calendar file", () => {
   const plan = studyPlan([{ name: "Net; Security, part 1", date: "2026-12-12", hours_needed: 6 }], parseDate("2026-12-07"), 2, [0]);
   const file = studyPlanIcs(plan, { includeExams: true, now: new Date(Date.UTC(2026, 10, 14, 9, 30)) });
@@ -256,6 +298,47 @@ describe("MCP tools", () => {
     expect((await call("pomodoro_plan", { total_minutes: 75 })).text).toContain("3 work sessions");
     expect((await call("assignment_milestones", { title: "Essay", due_date: "2026-11-20", estimated_hours: 6, start_date: "2026-11-10" })).text).toContain("Proofread and submit");
   });
+  it("gives the topic of every day of a plan", async () => {
+    const r = await call("build_study_plan", {
+      exams: [{ name: "Networking", date: "2026-12-10", topics: [{ name: "Routing", hours_needed: 6 }, { name: "Switching", hours_needed: 4 }, { name: "Security", hours_needed: 2 }] }],
+      hours_per_day: 4,
+      start_date: "2026-12-07",
+    });
+    expect(r.isError).toBe(false);
+    expect(r.text).toContain("- Routing 6h planned");
+    expect(r.text).toContain("- 2026-12-08 tue  Networking 4h  (4h total)");
+    expect(r.text).toContain("  - Networking: Routing 2h, Switching 1.5h, Security 0.5h");
+    expect(r.text).toContain("Everything fits.");
+  });
+  it("gives the topics of the day in what_to_study_today", async () => {
+    const r = await call("what_to_study_today", {
+      date: "2026-12-08",
+      exams: [{ name: "Networking", date: "2026-12-10", topics: [{ name: "Routing", hours_needed: 6 }, { name: "Switching", hours_needed: 4 }, { name: "Security", hours_needed: 2 }] }],
+      hours_per_day: 4,
+      start_date: "2026-12-07",
+    });
+    expect(r.isError).toBe(false);
+    expect(r.text).toContain("Study sessions, 4h total");
+    expect(r.text).toContain("- Networking 4h");
+    expect(r.text).toContain("  - Routing 2h, Switching 1.5h, Security 0.5h");
+  });
+  it("explains topics that do not fit the exam", async () => {
+    const r = await call("build_study_plan", {
+      exams: [{ name: "Networking", date: "2026-12-12", hours_needed: 20, topics: [{ name: "Routing", hours_needed: 6 }] }],
+      start_date: "2026-12-07",
+    });
+    expect(r.isError).toBe(true);
+    expect(r.text).toContain("add up to 6h");
+  });
+  it("puts the topics of a session in the calendar file", async () => {
+    const r = await call("export_study_plan_ics", {
+      exams: [{ name: "Networking", date: "2026-12-12", topics: [{ name: "Routing", hours_needed: 6 }, { name: "Security", hours_needed: 4 }] }],
+      hours_per_day: 2,
+      start_date: "2026-12-07",
+    });
+    expect(r.isError).toBe(false);
+    expect(r.text.replace(/\r\n /g, "")).toContain("Topics: Routing 1h\\, Security 1h.");
+  });
   it("exports a plan as an .ics file", async () => {
     const args = { exams: [{ name: "Networking", date: "2026-12-12", hours_needed: 6 }], start_date: "2026-12-07", hours_per_day: 2, days_off: ["sun"] };
     const r = await call("export_study_plan_ics", args);
@@ -299,6 +382,19 @@ describe("MCP tools", () => {
     const r = await call("build_study_plan", JSON.parse(json![1]));
     expect(r.isError).toBe(false);
     expect(r.text).toBe(answer![1].trimEnd());
+  });
+  it("shows a real plan with topics in the README", async () => {
+    const section = readmeSection("Hours per topic");
+    const calls = [...section.matchAll(/Tool call:\n\n```json\n([\s\S]*?)```/g)].map((m) => m[1]);
+    const answers = [...section.matchAll(/The answer:\n\n```text\n([\s\S]*?)```/g)].map((m) => m[1]);
+    expect(calls.length).toBe(2);
+    expect(answers.length).toBe(2);
+    const plan = await call("build_study_plan", JSON.parse(calls[0]));
+    expect(plan.isError).toBe(false);
+    expect(plan.text).toBe(answers[0].trimEnd());
+    const day = await call("what_to_study_today", JSON.parse(calls[1]));
+    expect(day.isError).toBe(false);
+    expect(day.text).toBe(answers[1].trimEnd());
   });
   it("shows a real ICS file in the README", async () => {
     const section = readmeSection("Calendar file");
