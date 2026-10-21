@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.3
+
+- Retune npm keywords and rewrite the package description
+- Add a tested real build_study_plan sample to the README
+
 ## 0.1.2
 
 - Small fixes and clearer docs
