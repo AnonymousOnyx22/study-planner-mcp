@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { type ToolDef, bullets } from "./core/tools.js";
+import { studyPlanIcs } from "./ics.js";
 import { addDays, fmt, label, milestones, parseDate, pomodoro, spacedDates, studyPlan, today, weekdayIndex } from "./plan.js";
 
 type Api = null;
@@ -47,43 +48,48 @@ function numberField(name: string, example = 3, min = 0, max?: number, integer =
   return s;
 }
 
+/** The arguments every plan building tool takes, kept in one place so they never drift apart. */
+function planFields() {
+  return {
+    exams: z
+      .array(
+        z.object({
+          name: textField("name", "Networking"),
+          date: dateField("exam_date"),
+          hours_needed: numberField("hours_needed", 10, 0).optional().describe("Study hours you want to put in. Defaults to 10."),
+        }),
+        {
+          error: (iss) =>
+            iss.input === undefined
+              ? "exams is required; try exams: [{name: \"Networking\", date: \"2026-12-12\", hours_needed: 6}]"
+              : "exams must be a list of exams; try exams: [{name: \"Networking\", date: \"2026-12-12\", hours_needed: 6}]",
+        },
+      )
+      .min(1, {
+        error: "exams must have at least 1 exam; try exams: [{name: \"Networking\", date: \"2026-12-12\", hours_needed: 6}]",
+      })
+      .describe("Exams with name, date and optional hours needed."),
+    hours_per_day: numberField("hours_per_day", 3, 0, 16).default(3).describe("Study hours available on a study day."),
+    days_off: z
+      .array(textField("days_off", "sun"), {
+        error: (iss) =>
+          iss.input === undefined
+            ? "days_off is required; try days_off: [\"sun\"]"
+            : "days_off must be a list of weekday names; try days_off: [\"sun\"]",
+      })
+      .default([])
+      .describe('Weekdays with no studying, like ["sun"].'),
+    start_date: dateField("start_date").optional().describe("First day to study. Defaults to today."),
+  };
+}
+
 const core: ToolDef<Api>[] = [
   {
     name: "make_study_plan",
     title: "Make a study plan",
     description:
       "Build a day by day study plan for one or more exams. Daily hours are shared across exams by urgency, study stops the day before each exam, and the answer warns when there is not enough time. Example prompt: \"Plan 3 weeks of study for my 4 exams, 90 minutes a day.\"",
-    inputSchema: {
-      exams: z
-        .array(
-          z.object({
-            name: textField("name", "Networking"),
-            date: dateField("exam_date"),
-            hours_needed: numberField("hours_needed", 10, 0).optional().describe("Study hours you want to put in. Defaults to 10."),
-          }),
-          {
-            error: (iss) =>
-              iss.input === undefined
-                ? "exams is required; try exams: [{name: \"Networking\", date: \"2026-12-12\", hours_needed: 6}]"
-                : "exams must be a list of exams; try exams: [{name: \"Networking\", date: \"2026-12-12\", hours_needed: 6}]",
-          },
-        )
-        .min(1, {
-          error: "exams must have at least 1 exam; try exams: [{name: \"Networking\", date: \"2026-12-12\", hours_needed: 6}]",
-        })
-        .describe("Exams with name, date and optional hours needed."),
-      hours_per_day: numberField("hours_per_day", 3, 0, 16).default(3).describe("Study hours available on a study day."),
-      days_off: z
-        .array(textField("days_off", "sun"), {
-          error: (iss) =>
-            iss.input === undefined
-              ? "days_off is required; try days_off: [\"sun\"]"
-              : "days_off must be a list of weekday names; try days_off: [\"sun\"]",
-        })
-        .default([])
-        .describe('Weekdays with no studying, like ["sun"].'),
-      start_date: dateField("start_date").optional().describe("First day to study. Defaults to today."),
-    },
+    inputSchema: planFields(),
     run: async (a) => {
       const start = a.start_date ? parseDate(a.start_date) : today();
       const plan = studyPlan(a.exams, start, a.hours_per_day, a.days_off.map(weekdayIndex));
@@ -179,6 +185,24 @@ const core: ToolDef<Api>[] = [
       const steps = a.steps ?? [{ name: "Research", share: 25 }, { name: "Outline", share: 10 }, { name: "First draft", share: 35 }, { name: "Revise", share: 20 }, { name: "Proofread and submit", share: 10 }];
       const rows = milestones(start, parseDate(a.due_date), a.estimated_hours, steps);
       return `${a.title}, due ${label(parseDate(a.due_date))}, about ${a.estimated_hours}h of work\n${bullets(rows.map((r) => `Finish by ${label(r.date)}, ${r.name} (${r.hours}h)`))}`;
+    },
+  },
+  {
+    name: "export_study_plan_ics",
+    title: "Export study plan as ICS",
+    description:
+      "Turn a study plan into an .ics calendar file to import into Google Calendar or Apple Calendar. It builds the same plan as build_study_plan and answers with the whole file, so save the answer as plan.ics and open it. Every study session becomes an all day event that shows as free, and every exam becomes an all day event that shows as busy unless include_exams is false. Example prompt: \"Export my plan for a networking exam on 2026-12-12, 6 hours, starting 2026-12-07, as an ICS file.\"",
+    inputSchema: {
+      ...planFields(),
+      include_exams: z
+        .boolean()
+        .default(true)
+        .describe("Also add an all day event on each exam day. Set false for study sessions only."),
+    },
+    run: async (a) => {
+      const start = a.start_date ? parseDate(a.start_date) : today();
+      const plan = studyPlan(a.exams, start, a.hours_per_day, a.days_off.map(weekdayIndex));
+      return studyPlanIcs(plan, { includeExams: a.include_exams });
     },
   },
 ];

@@ -10,6 +10,7 @@ Ask it things like:
 - "When should I review what I learned today so I remember it for my exam on Nov 30?"
 - "Plan 3 hours of studying as pomodoro blocks with breaks."
 - "Break my 6 hour essay due Friday into milestones."
+- "Give me this plan as an .ics file so I can import it into Google Calendar."
 
 This is a free, open source [MCP](https://modelcontextprotocol.io) server. It works with Claude, ChatGPT, Cursor, VS Code Copilot and any other app that supports MCP. It runs on your computer, so your study data never leaves it.
 
@@ -45,6 +46,7 @@ For Claude Code, run `claude mcp add study-planner -- npx -y study-planner-mcp`.
 | `plan_pomodoro_sessions` | A work and break schedule for a total amount of study time |
 | `list_assignment_milestones` | Dated milestones that split a big assignment into research, outline, draft, revise and proofread |
 | `next_review_dates` | The next review dates for a topic, computed from the day you first studied it |
+| `export_study_plan_ics` | The same plan as an `.ics` calendar file, with one all day event per study session and one per exam, ready to open or import into Google Calendar or Apple Calendar |
 
 The original names `make_study_plan`, `spaced_repetition_dates`, `pomodoro_plan` and `assignment_milestones` do the same four jobs with the same parameters, so existing configs and saved prompts keep working.
 
@@ -95,6 +97,41 @@ Everything fits.
 ```
 
 Sundays are skipped, and Networking stops on Dec 11 because studying stops the day before each exam, so Dec 12 is Scripting only.
+
+## Calendar file
+
+`export_study_plan_ics` takes the same arguments as `build_study_plan` and answers with a complete `.ics` file instead of plain text. Save the answer as `plan.ics` and open it, or import it in Google Calendar or Apple Calendar. Every study session becomes an all day event marked free, every exam becomes an all day event marked busy, and `include_exams: false` gives you the study sessions only. Each event carries a UID built from its date and exam name, and the dates are written as plain calendar dates, so no time zone moves an event to another day.
+
+Tool call:
+
+```json
+{
+  "exams": [{ "name": "Networking", "date": "2026-12-12", "hours_needed": 6 }],
+  "start_date": "2026-12-07",
+  "hours_per_day": 2,
+  "days_off": ["sun"]
+}
+```
+
+These are the first lines of the file, copied from a run. Two more study events and one exam event follow in the same shape, and `DTSTAMP` is the moment of the export, so yours will differ.
+
+```text
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//AnonymousOnyx22//Study Planner MCP//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:Study plan
+BEGIN:VEVENT
+UID:2026-12-07-networking-study@study-planner-mcp
+DTSTAMP:20261021T022919Z
+DTSTART;VALUE=DATE:20261207
+DTEND;VALUE=DATE:20261208
+SUMMARY:Study: Networking 2h
+DESCRIPTION:Networking\, 2h of study. Day total 2h. Exam on 2026-12-12 sat.
+TRANSP:TRANSPARENT
+END:VEVENT
+```
 
 ## Development
 

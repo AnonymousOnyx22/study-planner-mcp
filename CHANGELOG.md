@@ -21,6 +21,7 @@
 
 ## Unreleased
 
+- Added `export_study_plan_ics`, which answers with the plan as an `.ics` calendar file: one all day event per study session plus one per exam, ready to open or import in Google Calendar or Apple Calendar. `include_exams: false` leaves the exams out.
 - Added a real `build_study_plan` run to the README: the tool call and its day by day answer, kept true to the code by a test.
 - Tuned the npm keywords: dropped the duplicated protocol tags for the phrases people search, like exam schedule, study timetable and revision planner, and rewrote the package description in plain sentences.
 - Added explicit tool names for the same jobs: `build_study_plan`, `make_spaced_repetition_schedule`, `plan_pomodoro_sessions`, `list_assignment_milestones` and `next_review_dates`.

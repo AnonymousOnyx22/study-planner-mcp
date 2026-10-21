@@ -4,6 +4,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createServer } from "../src/server.js";
 import { parseDate, fmt, studyPlan, pomodoro, milestones, spacedDates } from "../src/plan.js";
+import { studyPlanIcs } from "../src/ics.js";
 
 let client: Client;
 beforeAll(async () => {
@@ -56,12 +57,60 @@ describe("plan math", () => {
   });
 });
 
+describe("calendar file", () => {
+  const plan = studyPlan([{ name: "Net; Security, part 1", date: "2026-12-12", hours_needed: 6 }], parseDate("2026-12-07"), 2, [0]);
+  const file = studyPlanIcs(plan, { includeExams: true, now: new Date(Date.UTC(2026, 10, 14, 9, 30)) });
+  it("writes a calendar of all day events", () => {
+    expect(file.startsWith("BEGIN:VCALENDAR\r\n")).toBe(true);
+    expect(file.endsWith("END:VCALENDAR\r\n")).toBe(true);
+    expect(file).toContain("VERSION:2.0");
+    expect(file).toContain("PRODID:-//AnonymousOnyx22//Study Planner MCP//EN");
+    expect(file).toContain("DTSTAMP:20261114T093000Z");
+    expect(file).toContain("DTSTART;VALUE=DATE:20261207");
+    expect(file).toContain("DTEND;VALUE=DATE:20261208");
+    expect(file).toContain("SUMMARY:Study: Net\\; Security\\, part 1 2h");
+    const flat = file.replace(/\r\n /g, "");
+    expect(flat).toContain("DESCRIPTION:Net\\; Security\\, part 1\\, 2h of study. Day total 2h. Exam on 2026-12-12 sat.");
+    expect(flat).toContain("SUMMARY:Exam: Net\\; Security\\, part 1");
+    expect(file).toContain("TRANSP:TRANSPARENT");
+    expect(file).toContain("TRANSP:OPAQUE");
+    const uids = [...file.matchAll(/^UID:(.+)$/gm)].map((m) => m[1]);
+    expect(uids.length).toBe(4);
+    expect(new Set(uids).size).toBe(4);
+    expect(uids[0]).toBe("2026-12-07-net-security-part-1-study@study-planner-mcp");
+    expect(uids[3]).toBe("2026-12-12-net-security-part-1-exam@study-planner-mcp");
+  });
+  it("leaves the exams out when asked", () => {
+    const studyOnly = studyPlanIcs(plan, { includeExams: false, now: new Date(Date.UTC(2026, 10, 14, 9, 30)) });
+    expect(studyOnly).not.toContain("SUMMARY:Exam:");
+    expect(studyOnly.match(/BEGIN:VEVENT/g)?.length).toBe(3);
+  });
+  it("folds long lines to 75 octets and survives the unfolding", () => {
+    const name = "Networking, security, routing, switching, cryptography and wireless";
+    const long = studyPlanIcs(
+      studyPlan([{ name, date: "2026-12-12", hours_needed: 6 }], parseDate("2026-12-07"), 2, [0]),
+      { now: new Date(Date.UTC(2026, 10, 14, 9, 30)) },
+    );
+    expect(long).toContain("\r\n ");
+    for (const line of long.split("\r\n")) expect(Buffer.byteLength(line, "utf8")).toBeLessThanOrEqual(75);
+    const flat = long.replace(/\r\n /g, "");
+    expect(flat).toContain(`SUMMARY:Study: ${name.replace(/,/g, "\\,")} 2h`);
+    const uni = studyPlanIcs(
+      studyPlan([{ name: "日本語と中文の試験", date: "2026-12-12", hours_needed: 6 }], parseDate("2026-12-07"), 2, [0]),
+      { now: new Date(Date.UTC(2026, 10, 14, 9, 30)) },
+    );
+    for (const line of uni.split("\r\n")) expect(Buffer.byteLength(line, "utf8")).toBeLessThanOrEqual(75);
+    expect(uni.replace(/\r\n /g, "")).toContain("SUMMARY:Study: 日本語と中文の試験 2h");
+  });
+});
+
 describe("MCP tools", () => {
-  it("lists nine read only tools", async () => {
+  it("lists ten read only tools", async () => {
     const tools = (await client.listTools()).tools;
     expect(tools.map((t) => t.name).sort()).toEqual([
       "assignment_milestones",
       "build_study_plan",
+      "export_study_plan_ics",
       "list_assignment_milestones",
       "make_spaced_repetition_schedule",
       "make_study_plan",
@@ -93,6 +142,30 @@ describe("MCP tools", () => {
     expect((await call("pomodoro_plan", { total_minutes: 75 })).text).toContain("3 work sessions");
     expect((await call("assignment_milestones", { title: "Essay", due_date: "2026-11-20", estimated_hours: 6, start_date: "2026-11-10" })).text).toContain("Proofread and submit");
   });
+  it("exports a plan as an .ics file", async () => {
+    const args = { exams: [{ name: "Networking", date: "2026-12-12", hours_needed: 6 }], start_date: "2026-12-07", hours_per_day: 2, days_off: ["sun"] };
+    const r = await call("export_study_plan_ics", args);
+    expect(r.isError).toBe(false);
+    expect(r.text.startsWith("BEGIN:VCALENDAR")).toBe(true);
+    expect(r.text).toContain("DTSTART;VALUE=DATE:20261207");
+    expect(r.text).toContain("SUMMARY:Study: Networking 2h");
+    expect(r.text).toContain("SUMMARY:Exam: Networking");
+    expect(r.text).toContain("END:VCALENDAR");
+    const studyOnly = await call("export_study_plan_ics", { ...args, include_exams: false });
+    expect(studyOnly.isError).toBe(false);
+    expect(studyOnly.text).not.toContain("SUMMARY:Exam:");
+    expect(studyOnly.text.match(/BEGIN:VEVENT/g)?.length).toBe(3);
+  });
+  it("explains an export with nothing in it", async () => {
+    const r = await call("export_study_plan_ics", {
+      exams: [{ name: "Networking", date: "2026-12-12", hours_needed: 6 }],
+      start_date: "2026-12-07",
+      days_off: ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+      include_exams: false,
+    });
+    expect(r.isError).toBe(true);
+    expect(r.text).toContain("Nothing to export");
+  });
   it("shows a real study plan in the README", async () => {
     const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
     const json = /Tool call:\n\n```json\n([\s\S]*?)```/.exec(readme);
@@ -102,6 +175,20 @@ describe("MCP tools", () => {
     const r = await call("build_study_plan", JSON.parse(json![1]));
     expect(r.isError).toBe(false);
     expect(r.text).toBe(answer![1].trimEnd());
+  });
+  it("shows a real ICS file in the README", async () => {
+    const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
+    const block = /```text\n(BEGIN:VCALENDAR[\s\S]*?)```/.exec(readme);
+    expect(block?.[1]).toBeTruthy();
+    const calls = [...readme.matchAll(/Tool call:\n\n```json\n([\s\S]*?)```/g)];
+    const json = calls.find((m) => m[1].includes("2026-12-07"));
+    expect(json).toBeTruthy();
+    const r = await call("export_study_plan_ics", JSON.parse(json![1]));
+    expect(r.isError).toBe(false);
+    expect(r.text.match(/BEGIN:VEVENT/g)?.length).toBe(4);
+    for (const line of block![1].split("\n")) {
+      if (line && !line.startsWith("DTSTAMP:")) expect(r.text).toContain(line);
+    }
   });
   it("answers the explicit verb names like the originals", async () => {
     const built = await call("build_study_plan", { exams: [{ name: "Networking", date: "2026-12-12", hours_needed: 6 }], start_date: "2026-12-07", hours_per_day: 2, days_off: ["sun"] });
