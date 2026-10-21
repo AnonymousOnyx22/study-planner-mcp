@@ -28,11 +28,11 @@
     },
     {
       "name": "make_spaced_repetition_schedule",
-      "description": "Make a spaced repetition schedule for a topic: review dates at expanding intervals from the day you first studied it, with any date on or after the exam marked to skip. Example prompt: \"When should I review what I learned today for my exam on 2026-11-30?\""
+      "description": "Make a spaced repetition schedule for a topic: every review date at expanding intervals from the day you first studied it, with any date on or after the exam marked to skip. Use next_review_dates when you want the next review date only. Example prompt: \"When should I review what I learned today for my exam on 2026-11-30?\""
     },
     {
       "name": "next_review_dates",
-      "description": "List the next review dates for a topic, computed from the day you first studied it with expanding spaced repetition intervals. Dates on or after the exam are marked to skip. Example prompt: \"When should I review what I learned today for my exam on 2026-11-30?\""
+      "description": "Give the date of the next review for one topic, so you get a single date instead of the whole schedule. It is the first review that is not on or after the exam and has not passed yet, counting from the day you first studied it. The answer counts the reviews that already passed. Use make_spaced_repetition_schedule when you want every review date. Example prompt: \"When should I review the routing I studied on 2026-11-01 for my exam on 2026-11-30?\""
     },
     {
       "name": "pomodoro_plan",
@@ -56,7 +56,7 @@
     },
     {
       "name": "what_to_study_today",
-      "description": "Answer what to study on one day in a single call: the study sessions your plan gives for that day, with the topic of each session when the exams have topics, plus the spaced repetition reviews that are due that day or are late. Give the same exams and hours you use in build_study_plan, including hours_per_weekday, and the topics you are reviewing with the day you first studied each one. Example prompt: \"What should I study today? I have a networking exam on 2026-12-12 and I studied routing on 2026-11-27.\""
+      "description": "Answer what to study on one day in a single call: the study sessions your plan gives for that day, with the topic of each session when the exams have topics, plus the spaced repetition reviews that are due that day or are late. Give the same exams and hours you use in build_study_plan, including hours_per_weekday, and the topics you are reviewing with the day you first studied each one. Leave date out and it uses today's date. Example prompt: \"What should I study today? I have a networking exam on 2026-12-12 and I studied routing on 2026-11-27.\""
     }
   ]
 }

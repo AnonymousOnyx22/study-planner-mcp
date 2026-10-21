@@ -136,7 +136,7 @@ After any of these, try one of the questions at the top of this page.
 | `make_spaced_repetition_schedule` | Spaced repetition review dates for a topic at expanding intervals, with dates on or after the exam marked to skip |
 | `plan_pomodoro_sessions` | A work and break schedule for a total amount of study time |
 | `list_assignment_milestones` | Dated milestones that split a big assignment into research, outline, draft, revise and proofread |
-| `next_review_dates` | The next review dates for a topic, computed from the day you first studied it |
+| `next_review_dates` | The date of the next review for one topic, so you get a single date instead of the whole schedule |
 | `export_study_plan_ics` | The same plan as an `.ics` calendar file, with one all day event per study session and one per exam, ready to open or import into Google Calendar or Apple Calendar |
 | `what_to_study_today` | What to study on one day: the study sessions from your plan for that day, the topic of each session when the exams have topics, plus the spaced repetition reviews that are due that day or are late |
 
@@ -156,7 +156,7 @@ This server reads no site at all. You give it the exam dates and the hours you c
 | A day by day study timetable | Yes, `build_study_plan` | No, it shows the dated events your school posted | No, it shows the dated events your school posted |
 | Different hours for each weekday | Yes, `hours_per_weekday` on the plan tools | No | No |
 | Which topic to study on each day | Yes, give the exam topics | No | No |
-| Spaced repetition review dates | Yes, `make_spaced_repetition_schedule` | No | No |
+| Spaced repetition review dates | Yes, `make_spaced_repetition_schedule`, and `next_review_dates` for the next one only | No | No |
 | Pomodoro blocks with breaks | Yes, `plan_pomodoro_sessions` | No | No |
 | Assignment milestones with dates | Yes, `list_assignment_milestones` | No | No |
 | What to do today | Yes, `what_to_study_today`, and it adds the reviews that are due | Yes, a to do list of the work your school set | Yes, a to do list of the work your school set |
@@ -442,6 +442,30 @@ Next reviews
 
 Next exam: Networking on 2026-12-12 sat, 12 days left.
 ```
+
+## Next review date
+
+`next_review_dates` gives one date, the next review for one topic, instead of the whole schedule. It counts from the day you first studied the topic, and it skips any review that falls on or after the exam. The answer counts the reviews that have already passed. Pass `from_date` to say which day to count from, so the answer is repeatable. Use `make_spaced_repetition_schedule` when you want every review date.
+
+Tool call:
+
+```json
+{
+  "topic": "Routing",
+  "first_study_date": "2026-11-27",
+  "exam_date": "2026-12-12",
+  "from_date": "2026-11-29"
+}
+```
+
+The answer:
+
+```text
+Next review for "Routing": 2026-11-30 mon, the 2nd review, in 1 day.
+1 review has passed.
+```
+
+The routing was first studied on Nov 27, so the first review fell on Nov 28 and has passed. The next one is Nov 30, and the review on Dec 27 is left out because it falls after the exam on Dec 12.
 
 ## Development
 

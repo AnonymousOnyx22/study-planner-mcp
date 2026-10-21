@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { type ToolDef, bullets } from "./core/tools.js";
 import { studyPlanIcs } from "./ics.js";
-import { DAY_MS, fmt, label, milestones, parseDate, planForDay, pomodoro, spacedDates, studyPlan, today, weekdayHours, weekdayIndex } from "./plan.js";
+import { DAY_MS, fmt, label, milestones, nextReview, parseDate, planForDay, pomodoro, spacedDates, studyPlan, today, weekdayHours, weekdayIndex } from "./plan.js";
 
 type Api = null;
 
@@ -143,6 +143,24 @@ function planFields() {
   };
 }
 
+/** The arguments the review tools take, kept in one place so they never drift apart. */
+function reviewFields() {
+  return {
+    topic: textField("topic", "Routing").describe("Topic you studied."),
+    first_study_date: dateField("first_study_date").optional().describe("The day you first studied it. Defaults to today."),
+    intervals_days: z
+      .array(numberField("intervals_days", 7, 0, undefined, true), {
+        error: (iss) =>
+          iss.input === undefined
+            ? "intervals_days is required; try intervals_days: [1, 3, 7, 14, 30]"
+            : "intervals_days must be a list of whole days; try intervals_days: [1, 3, 7, 14, 30]",
+      })
+      .default([1, 3, 7, 14, 30])
+      .describe("Days after the first study to review."),
+    exam_date: dateField("exam_date").optional().describe("Exam date, if any. Reviews on or after it are skipped."),
+  };
+}
+
 /** "1st", "2nd", "3rd" and so on, for naming reviews in order. */
 function ordinal(n: number): string {
   const teen = n % 100 >= 11 && n % 100 <= 13;
@@ -152,6 +170,15 @@ function ordinal(n: number): string {
   if (last === 2) return `${n}nd`;
   if (last === 3) return `${n}rd`;
   return `${n}th`;
+}
+
+/** "today", "in 3 days" or "5 days ago", for a date compared with the day you ask about. */
+function relative(from: Date, date: Date): string {
+  const days = Math.round((date.getTime() - from.getTime()) / DAY_MS);
+  if (days === 0) return "today";
+  if (days > 0) return `in ${days} ${days === 1 ? "day" : "days"}`;
+  const past = -days;
+  return `${past} ${past === 1 ? "day" : "days"} ago`;
 }
 
 /** The topic lines under a study day, one line for each exam that has topics. */
@@ -208,26 +235,43 @@ const core: ToolDef<Api>[] = [
     title: "Spaced repetition dates",
     description:
       "List spaced repetition review dates for a topic at expanding intervals, so you revisit it just before you would forget it. Dates on or after the exam are marked to skip. Example prompt: \"When should I review what I learned today for my exam on 2026-11-30?\"",
-    inputSchema: {
-      topic: textField("topic", "Routing").describe("Topic you studied."),
-      first_study_date: dateField("first_study_date").optional().describe("The day you first studied it. Defaults to today."),
-      intervals_days: z
-        .array(numberField("intervals_days", 7, 0, undefined, true), {
-          error: (iss) =>
-            iss.input === undefined
-              ? "intervals_days is required; try intervals_days: [1, 3, 7, 14, 30]"
-              : "intervals_days must be a list of whole days; try intervals_days: [1, 3, 7, 14, 30]",
-        })
-        .default([1, 3, 7, 14, 30])
-        .describe("Days after the first study to review."),
-      exam_date: dateField("exam_date").optional().describe("Exam date, if any."),
-    },
+    inputSchema: reviewFields(),
     run: async (a) => {
       const first = a.first_study_date ? parseDate(a.first_study_date) : today();
       const exam = a.exam_date ? parseDate(a.exam_date) : undefined;
       const rows = spacedDates(first, a.intervals_days, exam);
       const lines = rows.map((r) => `Day ${r.day}, ${label(r.date)}${r.skipped ? " (after the exam, skip)" : ""}`);
       return `Review "${a.topic}" starting from ${label(first)}\n${bullets(lines)}`;
+    },
+  },
+  {
+    name: "next_review_dates",
+    title: "Next review date",
+    description:
+      "Give the date of the next review for one topic, so you get a single date instead of the whole schedule. It is the first review that is not on or after the exam and has not passed yet, counting from the day you first studied it. The answer counts the reviews that already passed. Use make_spaced_repetition_schedule when you want every review date. Example prompt: \"When should I review the routing I studied on 2026-11-01 for my exam on 2026-11-30?\"",
+    inputSchema: {
+      ...reviewFields(),
+      from_date: dateField("from_date").optional().describe("The day to count from. Defaults to today. Reviews before it have passed."),
+    },
+    run: async (a) => {
+      if (a.intervals_days.length === 0) throw new Error("Give intervals_days at least one number of days.");
+      const first = a.first_study_date ? parseDate(a.first_study_date) : today();
+      const exam = a.exam_date ? parseDate(a.exam_date) : undefined;
+      const from = a.from_date ? parseDate(a.from_date) : today();
+      const r = nextReview(first, a.intervals_days, exam, from);
+      const out: string[] = [];
+      if (r.date) {
+        out.push(`Next review for "${a.topic}": ${label(r.date)}, the ${ordinal(r.number ?? 1)} review, ${relative(from, r.date)}.`);
+      } else if (r.passed.length) {
+        const last = r.passed[r.passed.length - 1];
+        out.push(`No review left for "${a.topic}". The last one was on ${label(last)}, ${relative(from, last)}.`);
+      } else if (exam) {
+        out.push(`No review left for "${a.topic}" before the exam on ${label(exam)}.`);
+      } else {
+        out.push(`No review left for "${a.topic}".`);
+      }
+      if (r.passed.length) out.push(`${r.passed.length} ${r.passed.length === 1 ? "review has" : "reviews have"} passed.`);
+      return out.join("\n");
     },
   },
   {
@@ -308,7 +352,7 @@ const core: ToolDef<Api>[] = [
     name: "what_to_study_today",
     title: "What to study today",
     description:
-      "Answer what to study on one day in a single call: the study sessions your plan gives for that day, with the topic of each session when the exams have topics, plus the spaced repetition reviews that are due that day or are late. Give the same exams and hours you use in build_study_plan, including hours_per_weekday, and the topics you are reviewing with the day you first studied each one. Example prompt: \"What should I study today? I have a networking exam on 2026-12-12 and I studied routing on 2026-11-27.\"",
+      "Answer what to study on one day in a single call: the study sessions your plan gives for that day, with the topic of each session when the exams have topics, plus the spaced repetition reviews that are due that day or are late. Give the same exams and hours you use in build_study_plan, including hours_per_weekday, and the topics you are reviewing with the day you first studied each one. Leave date out and it uses today's date. Example prompt: \"What should I study today? I have a networking exam on 2026-12-12 and I studied routing on 2026-11-27.\"",
     inputSchema: {
       date: dateField("date").optional().describe("The day to show. Defaults to today."),
       exams: examList(false).optional().describe("Exams with name, date and optional hours needed. Leave it out to show reviews only."),
@@ -428,7 +472,7 @@ export const tools: ToolDef<Api>[] = [
     "spaced_repetition_dates",
     "make_spaced_repetition_schedule",
     "Make a spaced repetition schedule",
-    "Make a spaced repetition schedule for a topic: review dates at expanding intervals from the day you first studied it, with any date on or after the exam marked to skip. Example prompt: \"When should I review what I learned today for my exam on 2026-11-30?\"",
+    "Make a spaced repetition schedule for a topic: every review date at expanding intervals from the day you first studied it, with any date on or after the exam marked to skip. Use next_review_dates when you want the next review date only. Example prompt: \"When should I review what I learned today for my exam on 2026-11-30?\"",
   ),
   alias(
     "pomodoro_plan",
@@ -441,11 +485,5 @@ export const tools: ToolDef<Api>[] = [
     "list_assignment_milestones",
     "List assignment milestones",
     "List dated milestones that split a big assignment from a start date to the due date, with default steps for research, outline, draft, revise and proofread. Example prompt: \"Break my 6 hour essay due 2026-11-20 into milestones.\"",
-  ),
-  alias(
-    "spaced_repetition_dates",
-    "next_review_dates",
-    "Next review dates",
-    "List the next review dates for a topic, computed from the day you first studied it with expanding spaced repetition intervals. Dates on or after the exam are marked to skip. Example prompt: \"When should I review what I learned today for my exam on 2026-11-30?\"",
   ),
 ];

@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createServer } from "../src/server.js";
-import { parseDate, fmt, studyPlan, pomodoro, milestones, spacedDates, planForDay, weekdayHours } from "../src/plan.js";
+import { parseDate, fmt, studyPlan, pomodoro, milestones, spacedDates, nextReview, planForDay, weekdayHours } from "../src/plan.js";
 import { studyPlanIcs } from "../src/ics.js";
 
 let client: Client;
@@ -67,6 +67,23 @@ describe("plan math", () => {
     const rows = spacedDates(parseDate("2026-11-01"), [1, 3, 7, 14, 30], parseDate("2026-11-10"));
     expect(rows.map((r) => fmt(r.date))).toEqual(["2026-11-02", "2026-11-04", "2026-11-08", "2026-11-15", "2026-12-01"]);
     expect(rows.map((r) => r.skipped)).toEqual([false, false, false, true, true]);
+  });
+  it("picks the next review and counts the ones that passed", () => {
+    const r = nextReview(parseDate("2026-11-27"), [1, 3, 7, 14, 30], parseDate("2026-12-12"), parseDate("2026-11-29"));
+    expect(fmt(r.date ?? parseDate("2026-01-01"))).toBe("2026-11-30");
+    expect(r.number).toBe(2);
+    expect(r.passed.map((d) => fmt(d))).toEqual(["2026-11-28"]);
+  });
+  it("leaves no next review when every review has passed", () => {
+    const r = nextReview(parseDate("2026-11-01"), [1, 3, 7, 14, 30], parseDate("2026-11-30"), parseDate("2026-11-20"));
+    expect(r.date).toBeUndefined();
+    expect(r.number).toBeUndefined();
+    expect(r.passed.map((d) => fmt(d))).toEqual(["2026-11-02", "2026-11-04", "2026-11-08", "2026-11-15"]);
+  });
+  it("skips the next review when it falls on the exam", () => {
+    const r = nextReview(parseDate("2026-11-09"), [1, 3, 7], parseDate("2026-11-10"), parseDate("2026-11-09"));
+    expect(r.date).toBeUndefined();
+    expect(r.passed).toEqual([]);
   });
   it("orders milestones and finishes the day before the due date", () => {
     const rows = milestones(parseDate("2026-11-01"), parseDate("2026-11-11"), 10, [{ name: "a", share: 1 }, { name: "b", share: 1 }]);
@@ -410,6 +427,31 @@ describe("MCP tools", () => {
       if (line && !line.startsWith("DTSTAMP:")) expect(r.text).toContain(line);
     }
   });
+  it("shows a real next review in the README", async () => {
+    const section = readmeSection("Next review date");
+    const json = /Tool call:\n\n```json\n([\s\S]*?)```/.exec(section);
+    const answer = /The answer:\n\n```text\n([\s\S]*?)```/.exec(section);
+    expect(json?.[1]).toBeTruthy();
+    expect(answer?.[1]).toBeTruthy();
+    const r = await call("next_review_dates", JSON.parse(json![1]));
+    expect(r.isError).toBe(false);
+    expect(r.text).toBe(answer![1].trimEnd());
+  });
+  it("keeps the tool descriptions in llms.txt and glama.json the same as the tools", async () => {
+    const tools = (await client.listTools()).tools;
+    const llms = readFileSync(new URL("../llms.txt", import.meta.url), "utf8");
+    const glama = JSON.parse(readFileSync(new URL("../glama.json", import.meta.url), "utf8"));
+    for (const t of tools) {
+      const line = llms.split("\n").find((l) => l.startsWith(`- ${t.name}: `));
+      if (line) expect(line.slice(2)).toBe(`${t.name}: ${t.description}`);
+      const listed = glama.tools.find((x: { name: string }) => x.name === t.name);
+      expect(listed?.description).toBe(t.description);
+    }
+  });
+  it("keeps the server.json description short enough for the registry", () => {
+    const server = JSON.parse(readFileSync(new URL("../server.json", import.meta.url), "utf8"));
+    expect(server.description.length).toBeLessThanOrEqual(100);
+  });
   it("answers the explicit verb names like the originals", async () => {
     const built = await call("build_study_plan", { exams: [{ name: "Networking", date: "2026-12-12", hours_needed: 6 }], start_date: "2026-12-07", hours_per_day: 2, days_off: ["sun"] });
     expect(built.text).toContain("Everything fits.");
@@ -444,13 +486,46 @@ describe("MCP tools", () => {
     }
     for (const t of tools) expect(llms).toContain(t.name);
   });
-  it("gives the same spaced repetition dates under both names", async () => {
+  it("gives the same spaced repetition dates under both schedule names", async () => {
     const args = { topic: "Routing", first_study_date: "2026-11-01", exam_date: "2026-11-10" };
     const original = (await call("spaced_repetition_dates", args)).text;
     expect((await call("make_spaced_repetition_schedule", args)).text).toBe(original);
-    expect((await call("next_review_dates", args)).text).toBe(original);
     expect(original).toContain("2026-11-02 mon");
     expect(original).toContain("(after the exam, skip)");
+  });
+  it("gives only the next review from next_review_dates", async () => {
+    const r = await call("next_review_dates", { topic: "Routing", first_study_date: "2026-11-27", exam_date: "2026-12-12", from_date: "2026-11-29" });
+    expect(r.isError).toBe(false);
+    expect(r.text).toBe('Next review for "Routing": 2026-11-30 mon, the 2nd review, in 1 day.\n1 review has passed.');
+    expect(r.text).not.toContain("2026-12-04");
+  });
+  it("does not give the whole schedule from next_review_dates", async () => {
+    const full = (await call("spaced_repetition_dates", { topic: "Routing", first_study_date: "2026-11-01" })).text;
+    const one = (await call("next_review_dates", { topic: "Routing", first_study_date: "2026-11-01", from_date: "2026-11-01" })).text;
+    expect(full).toContain("2026-11-02");
+    expect(full).toContain("2026-12-01");
+    expect(one).toContain("2026-11-02");
+    expect(one).not.toContain("2026-12-01");
+  });
+  it("says when no review is left before the exam", async () => {
+    const r = await call("next_review_dates", { topic: "Routing", first_study_date: "2026-11-09", exam_date: "2026-11-10", from_date: "2026-11-09" });
+    expect(r.isError).toBe(false);
+    expect(r.text).toBe('No review left for "Routing" before the exam on 2026-11-10 tue.');
+  });
+  it("says when every review has passed", async () => {
+    const r = await call("next_review_dates", { topic: "Routing", first_study_date: "2026-11-01", exam_date: "2026-11-30", from_date: "2026-11-20" });
+    expect(r.isError).toBe(false);
+    expect(r.text).toBe('No review left for "Routing". The last one was on 2026-11-15 sun, 5 days ago.\n4 reviews have passed.');
+  });
+  it("counts a review from today when no first study date is given", async () => {
+    const r = await call("next_review_dates", { topic: "Routing" });
+    expect(r.isError).toBe(false);
+    expect(r.text).toContain("the 1st review, in 1 day.");
+  });
+  it("explains an empty list of intervals", async () => {
+    const r = await call("next_review_dates", { topic: "Routing", intervals_days: [] });
+    expect(r.isError).toBe(true);
+    expect(r.text).toContain("at least one number of days");
   });
 });
 

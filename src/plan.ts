@@ -303,6 +303,28 @@ export function spacedDates(first: Date, intervals: number[], examDate?: Date): 
   });
 }
 
+/** The next review to do, with the reviews that have already passed. */
+export interface NextReview {
+  /** The date of the next review. It is undefined when no review is left. */
+  date?: Date;
+  /** Which review it is, counting the reviews that are not skipped. */
+  number?: number;
+  /** The dates of the reviews that have already passed. */
+  passed: Date[];
+}
+
+/**
+ * Work out the next review for a topic. Reviews on or after the exam are skipped.
+ * The next review is the first one that falls on or after the day you ask from.
+ * When every review has passed, the date is undefined and the passed list holds them all.
+ */
+export function nextReview(first: Date, intervals: number[], examDate: Date | undefined, from: Date): NextReview {
+  const rows = spacedDates(first, intervals, examDate).filter((r) => !r.skipped);
+  const passed = rows.filter((r) => r.date.getTime() < from.getTime());
+  const next = rows.find((r) => r.date.getTime() >= from.getTime());
+  return { date: next?.date, number: next ? rows.indexOf(next) + 1 : undefined, passed: passed.map((r) => r.date) };
+}
+
 export function pomodoro(total: number, work: number, shortBreak: number, longBreak: number, before: number) {
   if (total < 1) throw new Error("Give at least 1 minute of study time.");
   const steps: { kind: "work" | "short break" | "long break"; minutes: number }[] = [];

@@ -31,6 +31,11 @@ describe("scratch", () => {
       ["assignment_milestones", { title: "Essay", due_date: "2026-12-01", estimated_hours: 6, start_date: "2026-12-07" }],
       ["assignment_milestones", { title: "Essay", due_date: "2026-12-07", estimated_hours: 6, start_date: "2026-12-07" }],
       ["pomodoro_plan", { total_minutes: 0 }],
+      ["next_review_dates", { topic: "Routing", first_study_date: "2026-11-27", exam_date: "2026-12-12", from_date: "2026-11-29" }],
+      ["next_review_dates", { topic: "Routing", first_study_date: "2026-11-01", exam_date: "2026-11-30", from_date: "2026-11-20" }],
+      ["next_review_dates", { topic: "Routing", first_study_date: "2026-11-09", exam_date: "2026-11-10", from_date: "2026-11-09" }],
+      ["next_review_dates", { topic: "Routing", first_study_date: "2026-11-27", intervals_days: [] }],
+      ["next_review_dates", { topic: "Routing", first_study_date: "2026-11-27", exam_date: "2026-12-12", from_date: "2026-12-04" }],
     ];
     for (const [name, args] of cases) {
       const r = await call(name, args);

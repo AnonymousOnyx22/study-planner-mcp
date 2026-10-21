@@ -21,6 +21,7 @@
 
 ## Unreleased
 
+- `next_review_dates` now gives one date, the next review for a topic, instead of the whole schedule. It keeps the same arguments, takes an optional `from_date` to say which day to count from, and counts the reviews that have already passed. `make_spaced_repetition_schedule` and `spaced_repetition_dates` still give every review date.
 - Added a keyword list to the README, so the phrases people search for, like revision timetable, exam schedule and spaced repetition dates, sit in one place. The npm keywords now use the same list, with revision schedule, revision plan, exam planner, exam prep, study calendar, study plan mcp, spaced repetition schedule, pomodoro planner and assignment plan added.
 - Added a comparison table to the README that puts this server next to Brightspace MCP and Canvas MCP, so you can see which one reads your school site and which one plans the study time. Each row says what the other two really do, so their to do lists, their calendar events and the calendar file Brightspace can write are named too.
 - Added `topics` to the exams of the plan tools, so an exam can carry its own topics with hours. The plan then names the topic of every study day, `what_to_study_today` names the topic of one day, and the calendar file puts the topics in the description of each session. Leave `hours_needed` off a topic and the hours of the exam are split evenly over the topics.
