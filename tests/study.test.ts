@@ -568,3 +568,89 @@ describe("README install snippets", () => {
     for (const line of names) expect(line).toContain(`"${pkg.name}"`);
   });
 });
+
+describe("README keywords and LMS comparison", () => {
+  const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+  const keywordLines = (): string[] =>
+    readmeSection("Keywords")
+      .split("\n")
+      .filter((l) => l.startsWith("- "))
+      .map((l) => l.slice(2).trim());
+
+  it("lists the phrases people search for", () => {
+    const listed = keywordLines();
+    expect(listed.length).toBeGreaterThan(0);
+    for (const phrase of [
+      "revision timetable",
+      "revision schedule",
+      "exam schedule",
+      "exam planner",
+      "spaced repetition dates",
+      "spaced repetition schedule",
+      "study timetable",
+      "study calendar",
+      "pomodoro",
+      "pomodoro planner",
+      "assignment milestones",
+      "study planner mcp",
+    ]) {
+      expect(listed).toContain(phrase);
+    }
+  });
+
+  it("keeps every keyword phrase short enough for npm", () => {
+    for (const phrase of keywordLines()) {
+      expect(phrase.length).toBeLessThanOrEqual(30);
+      expect(phrase).toBe(phrase.toLowerCase());
+    }
+  });
+
+  it("keeps the README keyword list the same as the npm keywords", () => {
+    const listed = keywordLines();
+    expect([...listed].sort()).toEqual([...(pkg.keywords as string[])].sort());
+  });
+
+  it("compares the server with Brightspace and Canvas", () => {
+    const section = readmeSection("Study Planner MCP compared with Brightspace and Canvas");
+    expect(section).not.toBe("");
+    expect(section).toContain("brightspace-d2l-mcp");
+    expect(section).toContain("canvas-lms-student-mcp");
+    expect(section).toContain("Spaced repetition review dates");
+    expect(section).toContain("Needs a school account");
+  });
+
+  it("gives every row of the comparison table a cell for each server", () => {
+    const section = readmeSection("Study Planner MCP compared with Brightspace and Canvas");
+    const rows = section
+      .split("\n")
+      .filter((l) => l.trim().startsWith("|"))
+      .filter((l) => !/^\|\s*---/.test(l.trim()));
+    expect(rows.length).toBeGreaterThan(5);
+    const cellsOf = (row: string) =>
+      row
+        .trim()
+        .replace(/^\||\|$/g, "")
+        .split("|")
+        .map((c) => c.trim());
+    // the head row may leave the top left corner empty
+    for (const cell of cellsOf(rows[0]).slice(1)) expect(cell).not.toBe("");
+    for (const row of rows.slice(1)) {
+      const cells = cellsOf(row);
+      expect(cells.length).toBe(4);
+      for (const cell of cells) expect(cell).not.toBe("");
+    }
+  });
+
+  it("names only tools and parameters the server really has", async () => {
+    const tools = await client.listTools();
+    const names = new Set(tools.tools.map((t) => t.name));
+    const params = new Set<string>();
+    for (const t of tools.tools) {
+      for (const key of Object.keys((t.inputSchema as { properties?: Record<string, unknown> })?.properties ?? {})) params.add(key);
+    }
+    const section = readmeSection("Study Planner MCP compared with Brightspace and Canvas");
+    const named = [...section.matchAll(/`([a-z_]+)`/g)].map((m) => m[1]);
+    expect(named.length).toBeGreaterThan(0);
+    for (const name of named) expect(names.has(name) || params.has(name)).toBe(true);
+  });
+});

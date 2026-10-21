@@ -2,7 +2,7 @@
 
 Offline exam planning for your AI: no account, no login, no internet needed, nothing stored. Free forever, open source.
 
-Give it your exam dates and how many hours you can study, the same on every day or different for each weekday, and get back a day by day plan with spaced repetition review dates, pomodoro blocks with breaks, and dated milestones for a big assignment. The date math is done by tested code, not guessed by the model.
+Give it your exam dates and how many hours you can study, the same on every day or different for each weekday, and get back a day by day plan with spaced repetition review dates, pomodoro blocks with breaks, and dated milestones for a big assignment. Ask for a revision timetable, an exam schedule or the spaced repetition dates for a topic, and it works them out from your dates and your hours. The date math is done by tested code, not guessed by the model.
 
 Ask it things like:
 
@@ -141,6 +141,65 @@ After any of these, try one of the questions at the top of this page.
 | `what_to_study_today` | What to study on one day: the study sessions from your plan for that day, the topic of each session when the exams have topics, plus the spaced repetition reviews that are due that day or are late |
 
 The original names `make_study_plan`, `spaced_repetition_dates`, `pomodoro_plan` and `assignment_milestones` do the same four jobs with the same parameters, so existing configs and saved prompts keep working.
+
+## Study Planner MCP compared with Brightspace and Canvas
+
+[Brightspace MCP](https://github.com/AnonymousOnyx22/brightspace-d2l-mcp) and [Canvas MCP](https://github.com/AnonymousOnyx22/canvas-lms-student-mcp) read your school site. They tell you what is due, what your grades are and what your teachers announced. They need an account and a sign in.
+
+This server reads no site at all. You give it the exam dates and the hours you can study, and it works out the timetable, the review dates and the breaks. Run it next to an LMS server if you like: one tells you what is assigned, the other tells you how to study it.
+
+| | Study Planner MCP | [Brightspace MCP](https://github.com/AnonymousOnyx22/brightspace-d2l-mcp) | [Canvas MCP](https://github.com/AnonymousOnyx22/canvas-lms-student-mcp) |
+| --- | --- | --- | --- |
+| What it reads | Nothing. You give it the exam dates and the hours | Your Brightspace courses, due dates, grades, files and announcements | Your Canvas courses, due dates, grades and announcements |
+| Needs a school account | No | Yes | Yes |
+| How you sign in | You never sign in | Browser sign in with your school login | An API token you create in Canvas |
+| A day by day study timetable | Yes, `build_study_plan` | No, it shows the dated events your school posted | No, it shows the dated events your school posted |
+| Different hours for each weekday | Yes, `hours_per_weekday` on the plan tools | No | No |
+| Which topic to study on each day | Yes, give the exam topics | No | No |
+| Spaced repetition review dates | Yes, `make_spaced_repetition_schedule` | No | No |
+| Pomodoro blocks with breaks | Yes, `plan_pomodoro_sessions` | No | No |
+| Assignment milestones with dates | Yes, `list_assignment_milestones` | No | No |
+| What to do today | Yes, `what_to_study_today`, and it adds the reviews that are due | Yes, a to do list of the work your school set | Yes, a to do list of the work your school set |
+| A calendar file | Yes, `export_study_plan_ics` writes your study sessions and your exams | Yes, of your due dates | No |
+| Works without a network | Yes | No | No |
+
+Brightspace also writes your due dates into a calendar file, and both of them show the dated events your school posted. What they do not do is turn your exam dates and your study hours into a day by day timetable with spaced repetition dates and pomodoro breaks.
+
+## Keywords
+
+People search for a study planner with words like these, so here they are in one place. Revision timetable, exam schedule and spaced repetition dates are on the list, along with the other names for the same jobs.
+
+- study planner mcp
+- study planner
+- study-planner-mcp
+- study plan mcp
+- revision timetable
+- revision schedule
+- revision plan
+- revision planner
+- exam schedule
+- exam timetable
+- exam planner
+- exam prep
+- exam study plan
+- study schedule
+- study timetable
+- study calendar
+- spaced repetition
+- spaced repetition dates
+- spaced repetition schedule
+- pomodoro
+- pomodoro planner
+- assignment milestones
+- assignment plan
+- student planner
+- student
+- mcp
+- mcp server
+- model context protocol
+- offline
+
+The npm listing uses the same words. If you searched for one of them, install the server and ask for a plan.
 
 ## How the study plan works
 
