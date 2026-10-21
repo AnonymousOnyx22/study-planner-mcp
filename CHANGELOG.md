@@ -1,26 +1,9 @@
 # Changelog
 
-## 0.1.3
-
-- Retune npm keywords and rewrite the package description
-- Add a tested real build_study_plan sample to the README
-
-## 0.1.2
-
-- Small fixes and clearer docs
-
-## 0.1.1
-
-- Add self correcting errors and worked example prompts to every tool
-- Align registry metadata, glama.json and llms.txt with npm listing
-- Rewrite descriptions and keywords around study planner mcp phrase
-- Refresh dependencies and re run the tests before the 0.1.1 bump
-- write the em dash check as an escape
-- Rename and rewrite its tools into explicit study-plan verbs
-- Rewrite README first screen around offline exam planning
-
 ## Unreleased
 
+- This file now starts with the Unreleased block, so the newest work comes first and every released version follows in order.
+- The scratch test that only printed messages to the console is no longer in the test folder, so every test file there checks something.
 - Every date the tools take can now be written in plain words: `Dec 12`, `12 Dec`, `Dec 12 2026`, `today`, `tomorrow`, `yesterday`, `in 3 weeks`, `3 days ago`, and `Friday`, `next Friday` or `last Friday`. The server reads the date itself, so the day math stays in tested code. A month name without a year means the next one that has not passed yet, and a date with a number for the month, like `12/12/2026`, is not read because the order of the numbers is not clear.
 - llms.txt now has a worked example for every tool: the prompt, the tool call with its arguments, and the answer that comes back. A test runs each of those calls and checks that the answer in the file is the answer the tool gives, so the examples cannot drift from the code.
 - The server.json description now says the server runs offline and needs no account, so the registry listing says what sets it apart from the school site servers that need a sign in.
@@ -42,6 +25,25 @@
 - Refreshed llms.txt, glama.json and the server.json description so listings match the current tool set.
 - Updated the development dependencies to TypeScript 7, Vitest 4 and the Node type definitions for Node 26. The build and the test run pass on a clean install.
 - tsconfig.json now names the Node types, so the compiler finds them without relying on automatic type discovery.
+
+## 0.1.3
+
+- Retune npm keywords and rewrite the package description
+- Add a tested real build_study_plan sample to the README
+
+## 0.1.2
+
+- Small fixes and clearer docs
+
+## 0.1.1
+
+- Add self correcting errors and worked example prompts to every tool
+- Align registry metadata, glama.json and llms.txt with npm listing
+- Rewrite descriptions and keywords around study planner mcp phrase
+- Refresh dependencies and re run the tests before the 0.1.1 bump
+- write the em dash check as an escape
+- Rename and rewrite its tools into explicit study-plan verbs
+- Rewrite README first screen around offline exam planning
 
 ## 0.1.0
 
