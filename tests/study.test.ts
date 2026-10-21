@@ -196,6 +196,33 @@ describe("MCP tools", () => {
     expect((await call("plan_pomodoro_sessions", { total_minutes: 75 })).text).toContain("3 work sessions");
     expect((await call("list_assignment_milestones", { title: "Essay", due_date: "2026-11-20", estimated_hours: 6, start_date: "2026-11-10" })).text).toContain("Proofread and submit");
   });
+  it("leads llms.txt with the current names and folds the older ones into one alias line", async () => {
+    const llms = readFileSync(new URL("../llms.txt", import.meta.url), "utf8");
+    const tools = (await client.listTools()).tools;
+    const current = [
+      "build_study_plan",
+      "make_spaced_repetition_schedule",
+      "next_review_dates",
+      "plan_pomodoro_sessions",
+      "list_assignment_milestones",
+      "export_study_plan_ics",
+    ];
+    const older = ["make_study_plan", "spaced_repetition_dates", "pomodoro_plan", "assignment_milestones"];
+    const lines = llms.split("\n");
+    const aliasLine = lines.find((l) => l.startsWith("- Aliases:")) ?? "";
+    expect(aliasLine).not.toBe("");
+    const aliasIndex = lines.indexOf(aliasLine);
+    for (const name of current) {
+      const line = lines.find((l) => l.startsWith(`- ${name}:`)) ?? "";
+      expect(line).not.toBe("");
+      expect(lines.indexOf(line)).toBeLessThan(aliasIndex);
+    }
+    for (const name of older) {
+      expect(aliasLine).toContain(name);
+      expect(lines.some((l) => l.startsWith(`- ${name}:`))).toBe(false);
+    }
+    for (const t of tools) expect(llms).toContain(t.name);
+  });
   it("gives the same spaced repetition dates under both names", async () => {
     const args = { topic: "Routing", first_study_date: "2026-11-01", exam_date: "2026-11-10" };
     const original = (await call("spaced_repetition_dates", args)).text;

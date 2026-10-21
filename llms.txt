@@ -9,15 +9,12 @@
 
 ## Tools
 - build_study_plan: Build a day by day study plan for one or more exams. Give each exam date and the hours you have per day, and get dated study sessions split by urgency, with a warning when the hours do not fit. Example prompt: "Plan 3 weeks of study for my 4 exams, 90 minutes a day."
-- make_study_plan: Build a day by day study plan for one or more exams. Daily hours are shared across exams by urgency, study stops the day before each exam, and the answer warns when there is not enough time. Example prompt: "Plan 3 weeks of study for my 4 exams, 90 minutes a day."
 - make_spaced_repetition_schedule: Make a spaced repetition schedule for a topic: review dates at expanding intervals from the day you first studied it, with any date on or after the exam marked to skip. Example prompt: "When should I review what I learned today for my exam on 2026-11-30?"
-- spaced_repetition_dates: List spaced repetition review dates for a topic at expanding intervals, so you revisit it just before you would forget it. Dates on or after the exam are marked to skip. Example prompt: "When should I review what I learned today for my exam on 2026-11-30?"
 - next_review_dates: List the next review dates for a topic, computed from the day you first studied it with expanding spaced repetition intervals. Dates on or after the exam are marked to skip. Example prompt: "When should I review what I learned today for my exam on 2026-11-30?"
 - plan_pomodoro_sessions: Plan pomodoro sessions for a total amount of study time: work blocks separated by short breaks, with a long break after a set number of sessions. Example prompt: "Plan 3 hours of studying as pomodoro blocks with breaks."
-- pomodoro_plan: Plan pomodoro sessions: a work and break schedule for a total amount of study time, with a long break after a set number of sessions. Example prompt: "Plan 3 hours of studying as pomodoro blocks with breaks."
 - list_assignment_milestones: List dated milestones that split a big assignment from a start date to the due date, with default steps for research, outline, draft, revise and proofread. Example prompt: "Break my 6 hour essay due 2026-11-20 into milestones."
-- assignment_milestones: List dated milestones that split a big assignment into steps between a start date and the due date. Example prompt: "Break my 6 hour essay due 2026-11-20 into milestones."
 - export_study_plan_ics: Turn a study plan into an .ics calendar file to import into Google Calendar or Apple Calendar. It builds the same plan as build_study_plan and answers with the whole file, so save the answer as plan.ics and open it. Every study session becomes an all day event that shows as free, and every exam becomes an all day event that shows as busy unless include_exams is false. Example prompt: "Export my plan for a networking exam on 2026-12-12, 6 hours, starting 2026-12-07, as an ICS file."
+- Aliases: make_study_plan, spaced_repetition_dates, pomodoro_plan and assignment_milestones are older names for the tools above. They take the same arguments and give the same answers, so use the names above when you can.
 
 ## Links
 - Source and README, https://github.com/AnonymousOnyx22/study-planner-mcp
