@@ -21,6 +21,7 @@
 
 ## Unreleased
 
+- Added `hours_per_weekday` to the plan tools, so each weekday can have its own study hours. Weekdays you leave out of the list fall back to `hours_per_day`, a weekday with 0 hours is a day off, and days in `days_off` are always left out. `build_study_plan`, `make_study_plan`, `export_study_plan_ics` and `what_to_study_today` all take it and build the same plan from it.
 - Added `what_to_study_today`, which merges the study sessions from your plan for that day with the spaced repetition reviews that are due that day or are late, so one call answers what to do today. Pass the day you want, the exams and hours you use in `build_study_plan`, and the topics you are reviewing with the day you first studied each one.
 - The README now has one install section per client, with the exact JSON for Claude Desktop, ChatGPT, Cursor and VS Code Copilot, and the file each app reads it from.
 - llms.txt now leads with the current tool names and puts the older names on a single Aliases line, so a client model picks the current names first.

@@ -40,12 +40,40 @@ export interface ExamInput {
   hours_needed?: number;
 }
 
+/** Study hours for one weekday, the way a caller gives them. */
+export interface WeekdayHoursInput {
+  /** Weekday name, like mon, tue, sat or sunday. */
+  day: string;
+  /** Study hours on that weekday. */
+  hours: number;
+}
+
+/** Study hours per weekday, indexed like Date.getUTCDay: 0 is sunday, 6 is saturday. */
+export type WeekdayHours = number[];
+
+/** Turn the weekday hours a caller gives into a list indexed like Date.getUTCDay. */
+export function weekdayHours(list?: WeekdayHoursInput[]): WeekdayHours | undefined {
+  if (!list || list.length === 0) return undefined;
+  const hours: WeekdayHours = [];
+  for (const item of list) {
+    const i = weekdayIndex(item.day);
+    if (hours[i] !== undefined) throw new Error(`You gave hours for ${item.day} twice. Give each weekday once.`);
+    if (!(item.hours >= 0)) throw new Error(`The hours for ${item.day} must be 0 or more, got ${item.hours}.`);
+    hours[i] = item.hours;
+  }
+  return hours;
+}
+
 export interface DayPlan {
   date: Date;
   items: { name: string; hours: number }[];
 }
 
-export function studyPlan(exams: ExamInput[], startDate: Date, hoursPerDay: number, daysOff: number[]) {
+/**
+ * Build a study plan. Each day gets the hours of its weekday when the caller set them,
+ * and hoursPerDay on every other weekday. A weekday with 0 hours is a day off.
+ */
+export function studyPlan(exams: ExamInput[], startDate: Date, hoursPerDay: number, daysOff: number[], weekday?: WeekdayHours) {
   if (exams.length === 0) throw new Error("Add at least one exam.");
   const work = exams.map((e) => ({
     name: e.name,
@@ -60,6 +88,8 @@ export function studyPlan(exams: ExamInput[], startDate: Date, hoursPerDay: numb
   const days: DayPlan[] = [];
   for (let d = startDate; d.getTime() < last.getTime(); d = addDays(d, 1)) {
     if (daysOff.includes(d.getUTCDay())) continue;
+    const dayHours = weekday?.[d.getUTCDay()] ?? hoursPerDay;
+    if (dayHours <= 0) continue;
     const active = work.filter((w) => w.left > 0 && w.exam.getTime() > d.getTime());
     if (active.length === 0) continue;
     const urgency = active.map((w) => {
@@ -67,10 +97,10 @@ export function studyPlan(exams: ExamInput[], startDate: Date, hoursPerDay: numb
       return { w, u: w.left / daysLeft };
     });
     const total = urgency.reduce((s, x) => s + x.u, 0);
-    let capacity = hoursPerDay;
+    let capacity = dayHours;
     const alloc = new Map<string, number>();
     for (const x of urgency.sort((a, b) => b.u - a.u)) {
-      const share = Math.min(x.w.left, HALF((x.u / total) * hoursPerDay));
+      const share = Math.min(x.w.left, HALF((x.u / total) * dayHours));
       const give = Math.min(share, capacity);
       alloc.set(x.w.name, give);
       capacity -= give;
@@ -111,8 +141,8 @@ export interface PlanDay {
 }
 
 /** Pick one day out of a study plan, plus the next study day after it. */
-export function planForDay(exams: ExamInput[], startDate: Date, target: Date, hoursPerDay: number, daysOff: number[]): PlanDay {
-  const plan = studyPlan(exams, startDate, hoursPerDay, daysOff);
+export function planForDay(exams: ExamInput[], startDate: Date, target: Date, hoursPerDay: number, daysOff: number[], weekday?: WeekdayHours): PlanDay {
+  const plan = studyPlan(exams, startDate, hoursPerDay, daysOff, weekday);
   const key = fmt(target);
   return {
     day: plan.days.find((d) => fmt(d.date) === key),

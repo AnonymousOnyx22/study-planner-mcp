@@ -2,11 +2,12 @@
 
 Offline exam planning for your AI: no account, no login, no internet needed, nothing stored. Free forever, open source.
 
-Give it your exam dates and how many hours you can study, and get back a day by day plan with spaced repetition review dates, pomodoro blocks with breaks, and dated milestones for a big assignment. The date math is done by tested code, not guessed by the model.
+Give it your exam dates and how many hours you can study, the same on every day or different for each weekday, and get back a day by day plan with spaced repetition review dates, pomodoro blocks with breaks, and dated milestones for a big assignment. The date math is done by tested code, not guessed by the model.
 
 Ask it things like:
 
 - "I have a networking exam on Dec 12 and scripting on Dec 15. I can study 3 hours a day except Sundays. Make me a plan."
+- "I have a networking exam on Dec 12. I study 2 hours on weekdays and 6 hours on weekends. Make me a plan."
 - "When should I review what I learned today so I remember it for my exam on Nov 30?"
 - "What should I study today? My networking exam is on Dec 12 and I studied routing last Friday."
 - "Plan 3 hours of studying as pomodoro blocks with breaks."
@@ -130,7 +131,7 @@ After any of these, try one of the questions at the top of this page.
 
 | Tool | What it does |
 | --- | --- |
-| `build_study_plan` | A day by day study plan for one or more exams, sharing your daily hours by urgency, with a warning if there is not enough time |
+| `build_study_plan` | A day by day study plan for one or more exams, sharing the hours of each weekday by urgency, with a warning if there is not enough time |
 | `make_spaced_repetition_schedule` | Spaced repetition review dates for a topic at expanding intervals, with dates on or after the exam marked to skip |
 | `plan_pomodoro_sessions` | A work and break schedule for a total amount of study time |
 | `list_assignment_milestones` | Dated milestones that split a big assignment into research, outline, draft, revise and proofread |
@@ -142,7 +143,50 @@ The original names `make_study_plan`, `spaced_repetition_dates`, `pomodoro_plan`
 
 ## How the study plan works
 
-Each day your hours are shared across the exams that still need work, weighted by how many hours are left divided by how many days remain, so closer and bigger exams get more time. Study stops the day before each exam. If the hours do not fit, the plan says how many are short instead of pretending. Dates are plain calendar dates, so time zones never shift a day.
+Each day has the hours of that weekday, which is `hours_per_day` unless you set `hours_per_weekday`. Those hours are shared across the exams that still need work, weighted by how many hours are left divided by how many days remain, so closer and bigger exams get more time. Study stops the day before each exam. If the hours do not fit, the plan says how many are short instead of pretending. Dates are plain calendar dates, so time zones never shift a day.
+
+## Different hours each day of the week
+
+Study days are not all the same length. `hours_per_weekday` sets the hours for each weekday, so the plan can give you 2 hours from Monday to Friday and 6 hours on Saturday and Sunday. Weekdays you leave out of the list fall back to `hours_per_day`, and a weekday with 0 hours is a day off, the same as a day in `days_off`. Days listed in `days_off` are always left out. The same list works in `export_study_plan_ics` and `what_to_study_today`, so all three tools build the same plan.
+
+Tool call:
+
+```json
+{
+  "exams": [{ "name": "Networking", "date": "2026-12-12", "hours_needed": 20 }],
+  "hours_per_day": 3,
+  "hours_per_weekday": [
+    { "day": "mon", "hours": 2 },
+    { "day": "tue", "hours": 2 },
+    { "day": "wed", "hours": 2 },
+    { "day": "thu", "hours": 2 },
+    { "day": "fri", "hours": 2 },
+    { "day": "sat", "hours": 6 },
+    { "day": "sun", "hours": 6 }
+  ],
+  "start_date": "2026-11-30"
+}
+```
+
+The answer:
+
+```text
+Exams
+- Networking on 2026-12-12 sat, 20h planned
+
+Plan from 2026-11-30
+- 2026-11-30 mon  Networking 2h  (2h total)
+- 2026-12-01 tue  Networking 2h  (2h total)
+- 2026-12-02 wed  Networking 2h  (2h total)
+- 2026-12-03 thu  Networking 2h  (2h total)
+- 2026-12-04 fri  Networking 2h  (2h total)
+- 2026-12-05 sat  Networking 6h  (6h total)
+- 2026-12-06 sun  Networking 4h  (4h total)
+
+Everything fits.
+```
+
+Saturday carries the 6 hours, and Sunday gets the 4 hours that are left over.
 
 ## Example plan
 

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { type ToolDef, bullets } from "./core/tools.js";
 import { studyPlanIcs } from "./ics.js";
-import { DAY_MS, fmt, label, milestones, parseDate, planForDay, pomodoro, spacedDates, studyPlan, today, weekdayIndex } from "./plan.js";
+import { DAY_MS, fmt, label, milestones, parseDate, planForDay, pomodoro, spacedDates, studyPlan, today, weekdayHours, weekdayIndex } from "./plan.js";
 
 type Api = null;
 
@@ -82,6 +82,40 @@ function daysOff() {
     .describe('Weekdays with no studying, like ["sun"].');
 }
 
+/** The study hours on one weekday of the hours_per_weekday list. */
+function weekdayHoursField() {
+  return z
+    .number({
+      error: (iss) =>
+        iss.input === undefined
+          ? "hours is required; try hours: 2"
+          : `hours must be a number, got "${iss.input}"; try hours: 2`,
+    })
+    .min(0, { error: "hours must be 0 or more; try hours: 2" })
+    .max(16, { error: "hours must be at most 16; try hours: 2" })
+    .describe("Study hours on that weekday. Use 0 for a day with no studying.");
+}
+
+function hoursPerWeekday() {
+  return z
+    .array(
+      z.object({
+        day: textField("day", "mon").describe("Weekday name, like mon, tue, sat or sunday."),
+        hours: weekdayHoursField(),
+      }),
+      {
+        error: (iss) =>
+          iss.input === undefined
+            ? 'hours_per_weekday is required; try hours_per_weekday: [{day: "mon", hours: 2}]'
+            : 'hours_per_weekday must be a list of weekdays with hours; try hours_per_weekday: [{day: "mon", hours: 2}]',
+      },
+    )
+    .optional()
+    .describe(
+      'Study hours for each weekday, like [{day: "mon", hours: 2}, {day: "sat", hours: 6}]. Weekdays you leave out use hours_per_day, a weekday with 0 hours is a day off, and days in days_off are always left out.',
+    );
+}
+
 /** The arguments every plan building tool takes, kept in one place so they never drift apart. */
 function planFields() {
   return {
@@ -89,6 +123,7 @@ function planFields() {
       .min(1, { error: `exams must have at least 1 exam; ${EXAM_HINT}` })
       .describe("Exams with name, date and optional hours needed."),
     hours_per_day: hoursPerDay(),
+    hours_per_weekday: hoursPerWeekday(),
     days_off: daysOff(),
     start_date: dateField("start_date").optional().describe("First day to study. Defaults to today."),
   };
@@ -110,16 +145,16 @@ const core: ToolDef<Api>[] = [
     name: "make_study_plan",
     title: "Make a study plan",
     description:
-      "Build a day by day study plan for one or more exams. Daily hours are shared across exams by urgency, study stops the day before each exam, and the answer warns when there is not enough time. Example prompt: \"Plan 3 weeks of study for my 4 exams, 90 minutes a day.\"",
+      "Build a day by day study plan for one or more exams. Daily hours are shared across exams by urgency, study stops the day before each exam, and the answer warns when there is not enough time. Set hours_per_weekday when your weekdays and your weekend differ. Example prompt: \"Plan 3 weeks of study for my 4 exams, 90 minutes a day.\"",
     inputSchema: planFields(),
     run: async (a) => {
       const start = a.start_date ? parseDate(a.start_date) : today();
-      const plan = studyPlan(a.exams, start, a.hours_per_day, a.days_off.map(weekdayIndex));
+      const plan = studyPlan(a.exams, start, a.hours_per_day, a.days_off.map(weekdayIndex), weekdayHours(a.hours_per_weekday));
       const lines = plan.days.map((d) => `${label(d.date)}  ${d.items.map((i) => `${i.name} ${i.hours}h`).join(", ")}  (${d.items.reduce((s, i) => s + i.hours, 0)}h total)`);
       const exams = plan.exams.map((e) => `${e.name} on ${label(e.date)}, ${e.need}h planned`);
       let out = `Exams\n${bullets(exams)}\n\nPlan from ${fmt(start)}\n${bullets(lines)}`;
       if (plan.short.length) {
-        out += `\n\nNot enough time. ${plan.short.map((s) => `${s.name} is ${s.hours}h short`).join(", ")}. Add study days, raise hours per day or lower the hours needed.`;
+        out += `\n\nNot enough time. ${plan.short.map((s) => `${s.name} is ${s.hours}h short`).join(", ")}. Add study days, raise hours per day or hours per weekday, or lower the hours needed.`;
       } else {
         out += "\n\nEverything fits.";
       }
@@ -213,7 +248,7 @@ const core: ToolDef<Api>[] = [
     name: "export_study_plan_ics",
     title: "Export study plan as ICS",
     description:
-      "Turn a study plan into an .ics calendar file to import into Google Calendar or Apple Calendar. It builds the same plan as build_study_plan and answers with the whole file, so save the answer as plan.ics and open it. Every study session becomes an all day event that shows as free, and every exam becomes an all day event that shows as busy unless include_exams is false. Example prompt: \"Export my plan for a networking exam on 2026-12-12, 6 hours, starting 2026-12-07, as an ICS file.\"",
+      "Turn a study plan into an .ics calendar file to import into Google Calendar or Apple Calendar. It builds the same plan as build_study_plan, with the same hours_per_weekday if you set one, and answers with the whole file, so save the answer as plan.ics and open it. Every study session becomes an all day event that shows as free, and every exam becomes an all day event that shows as busy unless include_exams is false. Example prompt: \"Export my plan for a networking exam on 2026-12-12, 6 hours, starting 2026-12-07, as an ICS file.\"",
     inputSchema: {
       ...planFields(),
       include_exams: z
@@ -223,7 +258,7 @@ const core: ToolDef<Api>[] = [
     },
     run: async (a) => {
       const start = a.start_date ? parseDate(a.start_date) : today();
-      const plan = studyPlan(a.exams, start, a.hours_per_day, a.days_off.map(weekdayIndex));
+      const plan = studyPlan(a.exams, start, a.hours_per_day, a.days_off.map(weekdayIndex), weekdayHours(a.hours_per_weekday));
       return studyPlanIcs(plan, { includeExams: a.include_exams });
     },
   },
@@ -231,11 +266,12 @@ const core: ToolDef<Api>[] = [
     name: "what_to_study_today",
     title: "What to study today",
     description:
-      "Answer what to study on one day in a single call: the study sessions your plan gives for that day, plus the spaced repetition reviews that are due that day or are late. Give the same exams and hours you use in build_study_plan, and the topics you are reviewing with the day you first studied each one. Example prompt: \"What should I study today? I have a networking exam on 2026-12-12 and I studied routing on 2026-11-27.\"",
+      "Answer what to study on one day in a single call: the study sessions your plan gives for that day, plus the spaced repetition reviews that are due that day or are late. Give the same exams and hours you use in build_study_plan, including hours_per_weekday, and the topics you are reviewing with the day you first studied each one. Example prompt: \"What should I study today? I have a networking exam on 2026-12-12 and I studied routing on 2026-11-27.\"",
     inputSchema: {
       date: dateField("date").optional().describe("The day to show. Defaults to today."),
       exams: examList(false).optional().describe("Exams with name, date and optional hours needed. Leave it out to show reviews only."),
       hours_per_day: hoursPerDay(),
+      hours_per_weekday: hoursPerWeekday(),
       days_off: daysOff(),
       start_date: dateField("start_date").optional().describe("First day of the plan. Defaults to the day you are asking about."),
       reviews: z
@@ -270,7 +306,7 @@ const core: ToolDef<Api>[] = [
 
       let nextExam: { name: string; date: Date; left: number } | undefined;
       if (exams.length) {
-        const plan = planForDay(exams, start, day, a.hours_per_day, a.days_off.map(weekdayIndex));
+        const plan = planForDay(exams, start, day, a.hours_per_day, a.days_off.map(weekdayIndex), weekdayHours(a.hours_per_weekday));
         if (plan.day) {
           const total = plan.day.items.reduce((s, i) => s + i.hours, 0);
           out.push("", `Study sessions, ${total}h total`, bullets(plan.day.items.map((i) => `${i.name} ${i.hours}h`)));
@@ -282,7 +318,7 @@ const core: ToolDef<Api>[] = [
           out.push("", "No study session today.");
         }
         if (plan.short.length) {
-          out.push("", `Not enough time. ${plan.short.map((s) => `${s.name} is ${s.hours}h short`).join(", ")}. Add study days, raise hours per day or lower the hours needed.`);
+          out.push("", `Not enough time. ${plan.short.map((s) => `${s.name} is ${s.hours}h short`).join(", ")}. Add study days, raise hours per day or hours per weekday, or lower the hours needed.`);
         }
         const upcoming = plan.exams
           .filter((e) => e.date.getTime() >= day.getTime())
@@ -339,7 +375,7 @@ export const tools: ToolDef<Api>[] = [
     "make_study_plan",
     "build_study_plan",
     "Build a study plan",
-    "Build a day by day study plan for one or more exams. Give each exam date and the hours you have per day, and get dated study sessions split by urgency, with a warning when the hours do not fit. Example prompt: \"Plan 3 weeks of study for my 4 exams, 90 minutes a day.\"",
+    "Build a day by day study plan for one or more exams. Give each exam date and the hours you have per day, or set different hours for each weekday with hours_per_weekday, and get dated study sessions split by urgency, with a warning when the hours do not fit. Example prompt: \"Plan 3 weeks of study for my 4 exams, 90 minutes a day.\"",
   ),
   alias(
     "spaced_repetition_dates",

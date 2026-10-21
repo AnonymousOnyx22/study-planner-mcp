@@ -1,7 +1,7 @@
 {
   "$schema": "https://glama.ai/mcp/schemas/server.json",
   "name": "study-planner-mcp",
-  "description": "Study planner MCP server. Give it your exam dates and daily study hours and it builds an exam schedule, a study timetable with spaced repetition review dates, pomodoro blocks and assignment milestones. It also hands back the plan as an .ics file to import into Google Calendar or Apple Calendar. Ask it what to study today and it merges the study sessions for that day with the reviews that are due. Runs offline, no account.",
+  "description": "Study planner MCP server. Give it your exam dates and the hours you study, the same on every day or different for each weekday, and it builds an exam schedule, a study timetable with spaced repetition review dates, pomodoro blocks and assignment milestones. It also hands back the plan as an .ics file to import into Google Calendar or Apple Calendar. Ask it what to study today and it merges the study sessions for that day with the reviews that are due. Runs offline, no account.",
   "type": "stdio",
   "license": "MIT",
   "repository": {
@@ -16,11 +16,11 @@
   "tools": [
     {
       "name": "make_study_plan",
-      "description": "Build a day by day study plan for one or more exams. Daily hours are shared across exams by urgency, study stops the day before each exam, and the answer warns when there is not enough time. Example prompt: \"Plan 3 weeks of study for my 4 exams, 90 minutes a day.\""
+      "description": "Build a day by day study plan for one or more exams. Daily hours are shared across exams by urgency, study stops the day before each exam, and the answer warns when there is not enough time. Set hours_per_weekday when your weekdays and your weekend differ. Example prompt: \"Plan 3 weeks of study for my 4 exams, 90 minutes a day.\""
     },
     {
       "name": "build_study_plan",
-      "description": "Build a day by day study plan for one or more exams. Give each exam date and the hours you have per day, and get dated study sessions split by urgency, with a warning when the hours do not fit. Example prompt: \"Plan 3 weeks of study for my 4 exams, 90 minutes a day.\""
+      "description": "Build a day by day study plan for one or more exams. Give each exam date and the hours you have per day, or set different hours for each weekday with hours_per_weekday, and get dated study sessions split by urgency, with a warning when the hours do not fit. Example prompt: \"Plan 3 weeks of study for my 4 exams, 90 minutes a day.\""
     },
     {
       "name": "spaced_repetition_dates",
@@ -52,11 +52,11 @@
     },
     {
       "name": "export_study_plan_ics",
-      "description": "Turn a study plan into an .ics calendar file to import into Google Calendar or Apple Calendar. It builds the same plan as build_study_plan and answers with the whole file, so save the answer as plan.ics and open it. Every study session becomes an all day event that shows as free, and every exam becomes an all day event that shows as busy unless include_exams is false. Example prompt: \"Export my plan for a networking exam on 2026-12-12, 6 hours, starting 2026-12-07, as an ICS file.\""
+      "description": "Turn a study plan into an .ics calendar file to import into Google Calendar or Apple Calendar. It builds the same plan as build_study_plan, with the same hours_per_weekday if you set one, and answers with the whole file, so save the answer as plan.ics and open it. Every study session becomes an all day event that shows as free, and every exam becomes an all day event that shows as busy unless include_exams is false. Example prompt: \"Export my plan for a networking exam on 2026-12-12, 6 hours, starting 2026-12-07, as an ICS file.\""
     },
     {
       "name": "what_to_study_today",
-      "description": "Answer what to study on one day in a single call: the study sessions your plan gives for that day, plus the spaced repetition reviews that are due that day or are late. Give the same exams and hours you use in build_study_plan, and the topics you are reviewing with the day you first studied each one. Example prompt: \"What should I study today? I have a networking exam on 2026-12-12 and I studied routing on 2026-11-27.\""
+      "description": "Answer what to study on one day in a single call: the study sessions your plan gives for that day, plus the spaced repetition reviews that are due that day or are late. Give the same exams and hours you use in build_study_plan, including hours_per_weekday, and the topics you are reviewing with the day you first studied each one. Example prompt: \"What should I study today? I have a networking exam on 2026-12-12 and I studied routing on 2026-11-27.\""
     }
   ]
 }

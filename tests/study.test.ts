@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createServer } from "../src/server.js";
-import { parseDate, fmt, studyPlan, pomodoro, milestones, spacedDates, planForDay } from "../src/plan.js";
+import { parseDate, fmt, studyPlan, pomodoro, milestones, spacedDates, planForDay, weekdayHours } from "../src/plan.js";
 import { studyPlanIcs } from "../src/ics.js";
 
 let client: Client;
@@ -17,6 +17,25 @@ async function call(name: string, args: Record<string, unknown> = {}) {
   const r: any = await client.callTool({ name, arguments: args });
   return { text: r.content[0].text as string, isError: !!r.isError };
 }
+function readmeText(): string {
+  return readFileSync(new URL("../README.md", import.meta.url), "utf8");
+}
+/** One README section, from its heading to the next one. */
+function readmeSection(title: string): string {
+  return readmeText().split(`## ${title}`)[1]?.split("\n## ")[0] ?? "";
+}
+function dayTotals(days: { date: Date; items: { hours: number }[] }[]) {
+  return days.map((d) => `${fmt(d.date)} ${d.items.reduce((s, i) => s + i.hours, 0)}h`);
+}
+const WEEKDAY_HOURS = [
+  { day: "mon", hours: 2 },
+  { day: "tue", hours: 2 },
+  { day: "wed", hours: 2 },
+  { day: "thu", hours: 2 },
+  { day: "fri", hours: 2 },
+  { day: "sat", hours: 6 },
+  { day: "sun", hours: 6 },
+];
 
 describe("plan math", () => {
   it("rejects bad dates", () => {
@@ -63,6 +82,47 @@ describe("plan math", () => {
     const off = planForDay(exams, parseDate("2026-12-06"), parseDate("2026-12-06"), 2, [0]);
     expect(off.day).toBeUndefined();
     expect(fmt(off.next?.date ?? parseDate("2026-12-01"))).toBe("2026-12-07");
+  });
+  it("gives every weekday its own hours", () => {
+    const plan = studyPlan([{ name: "Net", date: "2026-12-12", hours_needed: 20 }], parseDate("2026-11-30"), 3, [], weekdayHours(WEEKDAY_HOURS));
+    expect(dayTotals(plan.days)).toEqual([
+      "2026-11-30 2h",
+      "2026-12-01 2h",
+      "2026-12-02 2h",
+      "2026-12-03 2h",
+      "2026-12-04 2h",
+      "2026-12-05 6h",
+      "2026-12-06 4h",
+    ]);
+    expect(plan.short).toEqual([]);
+  });
+  it("keeps hours_per_day for the weekdays the list leaves out", () => {
+    const plan = studyPlan([{ name: "Net", date: "2026-12-12", hours_needed: 9 }], parseDate("2026-11-30"), 3, [], weekdayHours([{ day: "sat", hours: 6 }]));
+    expect(dayTotals(plan.days)).toEqual(["2026-11-30 3h", "2026-12-01 3h", "2026-12-02 3h"]);
+  });
+  it("treats a weekday with 0 hours as a day off", () => {
+    const plan = studyPlan([{ name: "Net", date: "2026-12-19", hours_needed: 30 }], parseDate("2026-11-30"), 3, [], weekdayHours([{ day: "sun", hours: 0 }, { day: "sat", hours: 6 }]));
+    const days = plan.days.map((d) => fmt(d.date));
+    expect(days).not.toContain("2026-12-06");
+    expect(days).toContain("2026-12-05");
+    expect(plan.days.reduce((s, d) => s + d.items.reduce((x, i) => x + i.hours, 0), 0)).toBe(30);
+  });
+  it("picks the day out of a plan with the hours of that weekday", () => {
+    const picked = planForDay([{ name: "Net", date: "2026-12-12", hours_needed: 40 }], parseDate("2026-11-30"), parseDate("2026-12-05"), 3, [], weekdayHours(WEEKDAY_HOURS));
+    expect(picked.day?.items).toEqual([{ name: "Net", hours: 6 }]);
+  });
+  it("leaves out a day that is in days_off even when that day has hours", () => {
+    const plan = studyPlan([{ name: "Net", date: "2026-12-19", hours_needed: 30 }], parseDate("2026-11-30"), 3, [6], weekdayHours([{ day: "sat", hours: 6 }]));
+    expect(plan.days.map((d) => fmt(d.date))).not.toContain("2026-12-05");
+    expect(plan.days.reduce((s, d) => s + d.items.reduce((x, i) => x + i.hours, 0), 0)).toBe(30);
+  });
+  it("takes half hours on a weekday", () => {
+    const plan = studyPlan([{ name: "Net", date: "2026-12-12", hours_needed: 6 }], parseDate("2026-11-30"), 3, [], weekdayHours([{ day: "mon", hours: 1.5 }]));
+    expect(dayTotals(plan.days)).toEqual(["2026-11-30 1.5h", "2026-12-01 3h", "2026-12-02 1.5h"]);
+  });
+  it("says which weekday was given twice and when a name is wrong", () => {
+    expect(() => weekdayHours([{ day: "mon", hours: 2 }, { day: "Monday", hours: 3 }])).toThrow("twice");
+    expect(() => weekdayHours([{ day: "funday", hours: 2 }])).toThrow("not a weekday");
   });
 });
 
@@ -143,6 +203,50 @@ describe("MCP tools", () => {
     expect(r.text).toContain("Everything fits.");
     expect(r.text).toContain("2026-12-07 mon");
   });
+  it("makes a plan with different hours for each weekday", async () => {
+    const r = await call("build_study_plan", {
+      exams: [{ name: "Networking", date: "2026-12-12", hours_needed: 20 }],
+      hours_per_day: 3,
+      hours_per_weekday: WEEKDAY_HOURS,
+      start_date: "2026-11-30",
+    });
+    expect(r.isError).toBe(false);
+    expect(r.text).toContain("2026-11-30 mon  Networking 2h  (2h total)");
+    expect(r.text).toContain("2026-12-05 sat  Networking 6h  (6h total)");
+    expect(r.text).toContain("2026-12-06 sun  Networking 4h  (4h total)");
+    expect(r.text).toContain("Everything fits.");
+  });
+  it("says what is short when the weekday hours are not enough", async () => {
+    const r = await call("build_study_plan", {
+      exams: [{ name: "Networking", date: "2026-12-05", hours_needed: 20 }],
+      hours_per_day: 3,
+      hours_per_weekday: [{ day: "mon", hours: 2 }, { day: "tue", hours: 2 }],
+      start_date: "2026-12-01",
+    });
+    expect(r.isError).toBe(false);
+    expect(r.text).toContain("Networking is 9h short");
+    expect(r.text).toContain("raise hours per day or hours per weekday");
+  });
+  it("explains a weekday that is wrong or given twice", async () => {
+    const wrong = await call("build_study_plan", { exams: [{ name: "Net", date: "2026-12-12" }], hours_per_weekday: [{ day: "funday", hours: 2 }] });
+    expect(wrong.isError).toBe(true);
+    expect(wrong.text).toContain("not a weekday");
+    const twice = await call("build_study_plan", { exams: [{ name: "Net", date: "2026-12-12" }], hours_per_weekday: [{ day: "mon", hours: 2 }, { day: "Monday", hours: 3 }] });
+    expect(twice.isError).toBe(true);
+    expect(twice.text).toContain("twice");
+  });
+  it("exports a plan with different hours for each weekday", async () => {
+    const r = await call("export_study_plan_ics", {
+      exams: [{ name: "Networking", date: "2026-12-12", hours_needed: 20 }],
+      hours_per_day: 3,
+      hours_per_weekday: WEEKDAY_HOURS,
+      start_date: "2026-11-30",
+    });
+    expect(r.isError).toBe(false);
+    expect(r.text).toContain("DTSTART;VALUE=DATE:20261205");
+    expect(r.text).toContain("SUMMARY:Study: Networking 6h");
+    expect(r.text).toContain("SUMMARY:Study: Networking 4h");
+  });
   it("explains a past exam date", async () => {
     const r = await call("make_study_plan", { exams: [{ name: "Old", date: "2026-01-01" }], start_date: "2026-12-07" });
     expect(r.isError).toBe(true);
@@ -177,9 +281,19 @@ describe("MCP tools", () => {
     expect(r.text).toContain("Nothing to export");
   });
   it("shows a real study plan in the README", async () => {
-    const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
-    const json = /Tool call:\n\n```json\n([\s\S]*?)```/.exec(readme);
-    const answer = /The answer:\n\n```text\n([\s\S]*?)```/.exec(readme);
+    const section = readmeSection("Example plan");
+    const json = /Tool call:\n\n```json\n([\s\S]*?)```/.exec(section);
+    const answer = /The answer:\n\n```text\n([\s\S]*?)```/.exec(section);
+    expect(json?.[1]).toBeTruthy();
+    expect(answer?.[1]).toBeTruthy();
+    const r = await call("build_study_plan", JSON.parse(json![1]));
+    expect(r.isError).toBe(false);
+    expect(r.text).toBe(answer![1].trimEnd());
+  });
+  it("shows a real plan with hours per weekday in the README", async () => {
+    const section = readmeSection("Different hours each day of the week");
+    const json = /Tool call:\n\n```json\n([\s\S]*?)```/.exec(section);
+    const answer = /The answer:\n\n```text\n([\s\S]*?)```/.exec(section);
     expect(json?.[1]).toBeTruthy();
     expect(answer?.[1]).toBeTruthy();
     const r = await call("build_study_plan", JSON.parse(json![1]));
@@ -187,10 +301,10 @@ describe("MCP tools", () => {
     expect(r.text).toBe(answer![1].trimEnd());
   });
   it("shows a real ICS file in the README", async () => {
-    const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
-    const block = /```text\n(BEGIN:VCALENDAR[\s\S]*?)```/.exec(readme);
+    const section = readmeSection("Calendar file");
+    const block = /```text\n(BEGIN:VCALENDAR[\s\S]*?)```/.exec(section);
     expect(block?.[1]).toBeTruthy();
-    const calls = [...readme.matchAll(/Tool call:\n\n```json\n([\s\S]*?)```/g)];
+    const calls = [...section.matchAll(/Tool call:\n\n```json\n([\s\S]*?)```/g)];
     const json = calls.find((m) => m[1].includes("2026-12-07"));
     expect(json).toBeTruthy();
     const r = await call("export_study_plan_ics", JSON.parse(json![1]));
@@ -271,6 +385,20 @@ describe("what to study today", () => {
     expect(r.text).toContain("No study session today. Next study day 2026-12-01 tue, 2h total");
   });
 
+  it("uses the hours of the weekday it is asked about", async () => {
+    const r = await call("what_to_study_today", {
+      date: "2026-12-05",
+      exams: [{ name: "Networking", date: "2026-12-12", hours_needed: 20 }],
+      hours_per_day: 3,
+      hours_per_weekday: WEEKDAY_HOURS,
+      start_date: "2026-11-30",
+    });
+    expect(r.isError).toBe(false);
+    expect(r.text).toContain("Today 2026-12-05 sat");
+    expect(r.text).toContain("Study sessions, 6h total");
+    expect(r.text).toContain("- Networking 6h");
+  });
+
   it("shows reviews on their own when there are no exams", async () => {
     const r = await call("what_to_study_today", { date: "2026-11-30", reviews: [{ topic: "Routing", first_study_date: "2026-11-27" }] });
     expect(r.isError).toBe(false);
@@ -297,8 +425,7 @@ describe("what to study today", () => {
   });
 
   it("shows a real run in the README", async () => {
-    const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
-    const section = readme.split("## What to study today")[1]?.split("\n## ")[0] ?? "";
+    const section = readmeSection("What to study today");
     const json = /Tool call:\n\n```json\n([\s\S]*?)```/.exec(section);
     const answer = /The answer:\n\n```text\n([\s\S]*?)```/.exec(section);
     expect(json?.[1]).toBeTruthy();
