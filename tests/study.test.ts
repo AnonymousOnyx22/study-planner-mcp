@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
+import { readFileSync } from "node:fs";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createServer } from "../src/server.js";
@@ -91,6 +92,16 @@ describe("MCP tools", () => {
   it("answers pomodoro and milestone calls", async () => {
     expect((await call("pomodoro_plan", { total_minutes: 75 })).text).toContain("3 work sessions");
     expect((await call("assignment_milestones", { title: "Essay", due_date: "2026-11-20", estimated_hours: 6, start_date: "2026-11-10" })).text).toContain("Proofread and submit");
+  });
+  it("shows a real study plan in the README", async () => {
+    const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
+    const json = /Tool call:\n\n```json\n([\s\S]*?)```/.exec(readme);
+    const answer = /The answer:\n\n```text\n([\s\S]*?)```/.exec(readme);
+    expect(json?.[1]).toBeTruthy();
+    expect(answer?.[1]).toBeTruthy();
+    const r = await call("build_study_plan", JSON.parse(json![1]));
+    expect(r.isError).toBe(false);
+    expect(r.text).toBe(answer![1].trimEnd());
   });
   it("answers the explicit verb names like the originals", async () => {
     const built = await call("build_study_plan", { exams: [{ name: "Networking", date: "2026-12-12", hours_needed: 6 }], start_date: "2026-12-07", hours_per_day: 2, days_off: ["sun"] });

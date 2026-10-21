@@ -52,6 +52,49 @@ The original names `make_study_plan`, `spaced_repetition_dates`, `pomodoro_plan`
 
 Each day your hours are shared across the exams that still need work, weighted by how many hours are left divided by how many days remain, so closer and bigger exams get more time. Study stops the day before each exam. If the hours do not fit, the plan says how many are short instead of pretending. Dates are plain calendar dates, so time zones never shift a day.
 
+## Example plan
+
+This is a real answer from `build_study_plan`, copied from a run of the code in this folder. Networking needs 20 hours by Dec 12 and Scripting needs 16 hours by Dec 15, with 3 hours a day and no study on Sundays. Passing `start_date` is what makes the dates repeatable.
+
+Tool call:
+
+```json
+{
+  "exams": [
+    { "name": "Networking", "date": "2026-12-12", "hours_needed": 20 },
+    { "name": "Scripting", "date": "2026-12-15", "hours_needed": 16 }
+  ],
+  "hours_per_day": 3,
+  "days_off": ["sun"],
+  "start_date": "2026-11-30"
+}
+```
+
+The answer:
+
+```text
+Exams
+- Networking on 2026-12-12 sat, 20h planned
+- Scripting on 2026-12-15 tue, 16h planned
+
+Plan from 2026-11-30
+- 2026-11-30 mon  Networking 2h, Scripting 1h  (3h total)
+- 2026-12-01 tue  Networking 2h, Scripting 1h  (3h total)
+- 2026-12-02 wed  Networking 2h, Scripting 1h  (3h total)
+- 2026-12-03 thu  Networking 2h, Scripting 1h  (3h total)
+- 2026-12-04 fri  Networking 1.5h, Scripting 1.5h  (3h total)
+- 2026-12-05 sat  Networking 2h, Scripting 1h  (3h total)
+- 2026-12-07 mon  Networking 2h, Scripting 1h  (3h total)
+- 2026-12-08 tue  Networking 1.5h, Scripting 1.5h  (3h total)
+- 2026-12-09 wed  Networking 2h, Scripting 1h  (3h total)
+- 2026-12-10 thu  Networking 1.5h, Scripting 1.5h  (3h total)
+- 2026-12-11 fri  Networking 1.5h, Scripting 1.5h  (3h total)
+- 2026-12-12 sat  Scripting 3h  (3h total)
+
+Everything fits.
+```
+
+Sundays are skipped, and Networking stops on Dec 11 because studying stops the day before each exam, so Dec 12 is Scripting only.
 
 ## Development
 
