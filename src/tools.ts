@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { type ToolDef, bullets } from "./core/tools.js";
 import { studyPlanIcs } from "./ics.js";
-import { DAY_MS, fmt, label, milestones, nextReview, parseDate, planForDay, pomodoro, spacedDates, studyPlan, today, weekdayHours, weekdayIndex } from "./plan.js";
+import { DAY_MS, fmt, label, parseDateInput, today } from "./dates.js";
+import { milestones, nextReview, planForDay, pomodoro, spacedDates, studyPlan, weekdayHours, weekdayIndex } from "./plan.js";
 
 type Api = null;
 
@@ -14,15 +15,27 @@ function textField(name: string, example = "Math") {
   });
 }
 
+/** The forms of a date the tools take, named in every description of a date. */
+const DATE_HINT = "Use 2026-12-12, or plain text like Dec 12, next Friday or in 3 weeks.";
+
 function dateField(name: string, example = "2026-11-14") {
-  return z.string({
-    error: (iss) =>
-      iss.input === undefined
-        ? `${name} is required; try ${name}: "${example}"`
-        : `${name} must be YYYY-MM-DD, got "${iss.input}"; try ${example}`,
-  }).regex(/^\d{4}-\d{2}-\d{2}$/, {
-    error: (iss) => `${name} must be YYYY-MM-DD, got "${iss.input}"; try ${example}`,
-  });
+  return z
+    .string({
+      error: (iss) =>
+        iss.input === undefined
+          ? `${name} is required; try ${name}: "${example}"`
+          : `${name} must be YYYY-MM-DD or plain text, got "${iss.input}"; try ${example}`,
+    })
+    .superRefine((value, ctx) => {
+      try {
+        parseDateInput(value);
+      } catch (err) {
+        ctx.addIssue({
+          code: "custom",
+          message: `${name} must be a date, got "${value}". ${(err as Error).message}`,
+        });
+      }
+    });
 }
 
 function numberField(name: string, example = 3, min = 0, max?: number, integer = false) {
@@ -57,7 +70,7 @@ const topicItem = z.object({
 
 const examItem = z.object({
   name: textField("name", "Networking"),
-  date: dateField("exam_date"),
+  date: dateField("exam_date").describe(`Date of the exam. ${DATE_HINT}`),
   hours_needed: numberField("hours_needed", 10, 0).optional().describe("Study hours you want to put in. Defaults to 10."),
   topics: z
     .array(topicItem, {
@@ -139,7 +152,7 @@ function planFields() {
     hours_per_day: hoursPerDay(),
     hours_per_weekday: hoursPerWeekday(),
     days_off: daysOff(),
-    start_date: dateField("start_date").optional().describe("First day to study. Defaults to today."),
+    start_date: dateField("start_date").optional().describe(`First day to study. Defaults to today. ${DATE_HINT}`),
   };
 }
 
@@ -147,7 +160,7 @@ function planFields() {
 function reviewFields() {
   return {
     topic: textField("topic", "Routing").describe("Topic you studied."),
-    first_study_date: dateField("first_study_date").optional().describe("The day you first studied it. Defaults to today."),
+    first_study_date: dateField("first_study_date").optional().describe(`The day you first studied it. Defaults to today. ${DATE_HINT}`),
     intervals_days: z
       .array(numberField("intervals_days", 7, 0, undefined, true), {
         error: (iss) =>
@@ -157,7 +170,7 @@ function reviewFields() {
       })
       .default([1, 3, 7, 14, 30])
       .describe("Days after the first study to review."),
-    exam_date: dateField("exam_date").optional().describe("Exam date, if any. Reviews on or after it are skipped."),
+    exam_date: dateField("exam_date").optional().describe(`Exam date, if any. Reviews on or after it are skipped. ${DATE_HINT}`),
   };
 }
 
@@ -202,10 +215,10 @@ const core: ToolDef<Api>[] = [
     name: "make_study_plan",
     title: "Make a study plan",
     description:
-      "Build a day by day study plan for one or more exams. Daily hours are shared across exams by urgency, study stops the day before each exam, and the answer warns when there is not enough time. Set hours_per_weekday when your weekdays and your weekend differ, and give an exam topics with their own hours to get the topic of each day as well. Example prompt: \"Plan 3 weeks of study for my 4 exams, 90 minutes a day.\"",
+      "Build a day by day study plan for one or more exams. Daily hours are shared across exams by urgency, study stops the day before each exam, and the answer warns when there is not enough time. Set hours_per_weekday when your weekdays and your weekend differ, and give an exam topics with their own hours to get the topic of each day as well. Dates can be plain text, like Dec 12 or in 3 weeks. Example prompt: \"Plan 3 weeks of study for my 4 exams, 90 minutes a day.\"",
     inputSchema: planFields(),
     run: async (a) => {
-      const start = a.start_date ? parseDate(a.start_date) : today();
+      const start = a.start_date ? parseDateInput(a.start_date) : today();
       const plan = studyPlan(a.exams, start, a.hours_per_day, a.days_off.map(weekdayIndex), weekdayHours(a.hours_per_weekday));
       const lines = plan.days.map((d) => {
         const head = `${label(d.date)}  ${d.items.map((i) => `${i.name} ${i.hours}h`).join(", ")}  (${d.items.reduce((s, i) => s + i.hours, 0)}h total)`;
@@ -234,11 +247,11 @@ const core: ToolDef<Api>[] = [
     name: "spaced_repetition_dates",
     title: "Spaced repetition dates",
     description:
-      "List spaced repetition review dates for a topic at expanding intervals, so you revisit it just before you would forget it. Dates on or after the exam are marked to skip. Example prompt: \"When should I review what I learned today for my exam on 2026-11-30?\"",
+      "List spaced repetition review dates for a topic at expanding intervals, so you revisit it just before you would forget it. Dates on or after the exam are marked to skip. Dates can be plain text, like Dec 12 or in 3 weeks. Example prompt: \"When should I review what I learned today for my exam on 2026-11-30?\"",
     inputSchema: reviewFields(),
     run: async (a) => {
-      const first = a.first_study_date ? parseDate(a.first_study_date) : today();
-      const exam = a.exam_date ? parseDate(a.exam_date) : undefined;
+      const first = a.first_study_date ? parseDateInput(a.first_study_date) : today();
+      const exam = a.exam_date ? parseDateInput(a.exam_date) : undefined;
       const rows = spacedDates(first, a.intervals_days, exam);
       const lines = rows.map((r) => `Day ${r.day}, ${label(r.date)}${r.skipped ? " (after the exam, skip)" : ""}`);
       return `Review "${a.topic}" starting from ${label(first)}\n${bullets(lines)}`;
@@ -248,16 +261,16 @@ const core: ToolDef<Api>[] = [
     name: "next_review_dates",
     title: "Next review date",
     description:
-      "Give the date of the next review for one topic, so you get a single date instead of the whole schedule. It is the first review that is not on or after the exam and has not passed yet, counting from the day you first studied it. The answer counts the reviews that already passed. Use make_spaced_repetition_schedule when you want every review date. Example prompt: \"When should I review the routing I studied on 2026-11-01 for my exam on 2026-11-30?\"",
+      "Give the date of the next review for one topic, so you get a single date instead of the whole schedule. It is the first review that is not on or after the exam and has not passed yet, counting from the day you first studied it. The answer counts the reviews that already passed. Use make_spaced_repetition_schedule when you want every review date. Dates can be plain text, like Dec 12 or in 3 weeks. Example prompt: \"When should I review the routing I studied on 2026-11-01 for my exam on 2026-11-30?\"",
     inputSchema: {
       ...reviewFields(),
-      from_date: dateField("from_date").optional().describe("The day to count from. Defaults to today. Reviews before it have passed."),
+      from_date: dateField("from_date").optional().describe(`The day to count from. Defaults to today. Reviews before it have passed. ${DATE_HINT}`),
     },
     run: async (a) => {
       if (a.intervals_days.length === 0) throw new Error("Give intervals_days at least one number of days.");
-      const first = a.first_study_date ? parseDate(a.first_study_date) : today();
-      const exam = a.exam_date ? parseDate(a.exam_date) : undefined;
-      const from = a.from_date ? parseDate(a.from_date) : today();
+      const first = a.first_study_date ? parseDateInput(a.first_study_date) : today();
+      const exam = a.exam_date ? parseDateInput(a.exam_date) : undefined;
+      const from = a.from_date ? parseDateInput(a.from_date) : today();
       const r = nextReview(first, a.intervals_days, exam, from);
       const out: string[] = [];
       if (r.date) {
@@ -301,12 +314,12 @@ const core: ToolDef<Api>[] = [
     name: "assignment_milestones",
     title: "Assignment milestones",
     description:
-      "List dated milestones that split a big assignment into steps between a start date and the due date. Example prompt: \"Break my 6 hour essay due 2026-11-20 into milestones.\"",
+      "List dated milestones that split a big assignment into steps between a start date and the due date. Dates can be plain text, like Dec 12 or in 3 weeks. Example prompt: \"Break my 6 hour essay due 2026-11-20 into milestones.\"",
     inputSchema: {
       title: textField("title", "Essay").describe("Assignment name."),
-      due_date: dateField("due_date").describe("Due date."),
+      due_date: dateField("due_date").describe(`Due date. ${DATE_HINT}`),
       estimated_hours: numberField("estimated_hours", 6, 0).describe("Estimated total hours."),
-      start_date: dateField("start_date").optional().describe("Defaults to today."),
+      start_date: dateField("start_date").optional().describe(`Defaults to today. ${DATE_HINT}`),
       steps: z
         .array(
           z.object({
@@ -324,17 +337,17 @@ const core: ToolDef<Api>[] = [
         .describe("Custom steps with relative sizes. Defaults to research, outline, draft, revise, proofread."),
     },
     run: async (a) => {
-      const start = a.start_date ? parseDate(a.start_date) : today();
+      const start = a.start_date ? parseDateInput(a.start_date) : today();
       const steps = a.steps ?? [{ name: "Research", share: 25 }, { name: "Outline", share: 10 }, { name: "First draft", share: 35 }, { name: "Revise", share: 20 }, { name: "Proofread and submit", share: 10 }];
-      const rows = milestones(start, parseDate(a.due_date), a.estimated_hours, steps);
-      return `${a.title}, due ${label(parseDate(a.due_date))}, about ${a.estimated_hours}h of work\n${bullets(rows.map((r) => `Finish by ${label(r.date)}, ${r.name} (${r.hours}h)`))}`;
+      const rows = milestones(start, parseDateInput(a.due_date), a.estimated_hours, steps);
+      return `${a.title}, due ${label(parseDateInput(a.due_date))}, about ${a.estimated_hours}h of work\n${bullets(rows.map((r) => `Finish by ${label(r.date)}, ${r.name} (${r.hours}h)`))}`;
     },
   },
   {
     name: "export_study_plan_ics",
     title: "Export study plan as ICS",
     description:
-      "Turn a study plan into an .ics calendar file to import into Google Calendar or Apple Calendar. It builds the same plan as build_study_plan, with the same hours_per_weekday if you set one, and answers with the whole file, so save the answer as plan.ics and open it. Every study session becomes an all day event that shows as free, with the topics of the session in its description when the exam has topics, and every exam becomes an all day event that shows as busy unless include_exams is false. Example prompt: \"Export my plan for a networking exam on 2026-12-12, 6 hours, starting 2026-12-07, as an ICS file.\"",
+      "Turn a study plan into an .ics calendar file to import into Google Calendar or Apple Calendar. It builds the same plan as build_study_plan, with the same hours_per_weekday if you set one, and answers with the whole file, so save the answer as plan.ics and open it. Every study session becomes an all day event that shows as free, with the topics of the session in its description when the exam has topics, and every exam becomes an all day event that shows as busy unless include_exams is false. Dates can be plain text, like Dec 12 or in 3 weeks. Example prompt: \"Export my plan for a networking exam on 2026-12-12, 6 hours, starting 2026-12-07, as an ICS file.\"",
     inputSchema: {
       ...planFields(),
       include_exams: z
@@ -343,7 +356,7 @@ const core: ToolDef<Api>[] = [
         .describe("Also add an all day event on each exam day. Set false for study sessions only."),
     },
     run: async (a) => {
-      const start = a.start_date ? parseDate(a.start_date) : today();
+      const start = a.start_date ? parseDateInput(a.start_date) : today();
       const plan = studyPlan(a.exams, start, a.hours_per_day, a.days_off.map(weekdayIndex), weekdayHours(a.hours_per_weekday));
       return studyPlanIcs(plan, { includeExams: a.include_exams });
     },
@@ -352,20 +365,20 @@ const core: ToolDef<Api>[] = [
     name: "what_to_study_today",
     title: "What to study today",
     description:
-      "Answer what to study on one day in a single call: the study sessions your plan gives for that day, with the topic of each session when the exams have topics, plus the spaced repetition reviews that are due that day or are late. Give the same exams and hours you use in build_study_plan, including hours_per_weekday, and the topics you are reviewing with the day you first studied each one. Leave date out and it uses today's date. Example prompt: \"What should I study today? I have a networking exam on 2026-12-12 and I studied routing on 2026-11-27.\"",
+      "Answer what to study on one day in a single call: the study sessions your plan gives for that day, with the topic of each session when the exams have topics, plus the spaced repetition reviews that are due that day or are late. Give the same exams and hours you use in build_study_plan, including hours_per_weekday, and the topics you are reviewing with the day you first studied each one. Leave date out and it uses today's date. Dates can be plain text, like Dec 12 or in 3 weeks. Example prompt: \"What should I study today? I have a networking exam on 2026-12-12 and I studied routing on 2026-11-27.\"",
     inputSchema: {
-      date: dateField("date").optional().describe("The day to show. Defaults to today."),
+      date: dateField("date").optional().describe(`The day to show. Defaults to today. ${DATE_HINT}`),
       exams: examList(false).optional().describe("Exams with name, date and optional hours needed. Leave it out to show reviews only."),
       hours_per_day: hoursPerDay(),
       hours_per_weekday: hoursPerWeekday(),
       days_off: daysOff(),
-      start_date: dateField("start_date").optional().describe("First day of the plan. Defaults to the day you are asking about."),
+      start_date: dateField("start_date").optional().describe(`First day of the plan. Defaults to the day you are asking about. ${DATE_HINT}`),
       reviews: z
         .array(
           z.object({
             topic: textField("topic", "Routing"),
-            first_study_date: dateField("first_study_date").optional().describe("The day you first studied it. Defaults to the day you are asking about."),
-            exam_date: dateField("exam_date").optional().describe("Exam date, if any. Reviews on or after it are skipped."),
+            first_study_date: dateField("first_study_date").optional().describe(`The day you first studied it. Defaults to the day you are asking about. ${DATE_HINT}`),
+            exam_date: dateField("exam_date").optional().describe(`Exam date, if any. Reviews on or after it are skipped. ${DATE_HINT}`),
           }),
           {
             error: () => 'reviews must be a list of topics; try reviews: [{topic: "Routing", first_study_date: "2026-11-27"}]',
@@ -384,8 +397,8 @@ const core: ToolDef<Api>[] = [
         .describe("Days after the first study to review."),
     },
     run: async (a) => {
-      const day = a.date ? parseDate(a.date) : today();
-      const start = a.start_date ? parseDate(a.start_date) : day;
+      const day = a.date ? parseDateInput(a.date) : today();
+      const start = a.start_date ? parseDateInput(a.start_date) : day;
       const exams = a.exams ?? [];
       const reviews = a.reviews ?? [];
       const out: string[] = [`Today ${label(day)}`];
@@ -423,8 +436,8 @@ const core: ToolDef<Api>[] = [
       const due: { topic: string; date: Date; n: number; late: number }[] = [];
       const next: { topic: string; date: Date; n: number }[] = [];
       for (const r of reviews) {
-        const first = r.first_study_date ? parseDate(r.first_study_date) : day;
-        const exam = r.exam_date ? parseDate(r.exam_date) : undefined;
+        const first = r.first_study_date ? parseDateInput(r.first_study_date) : day;
+        const exam = r.exam_date ? parseDateInput(r.exam_date) : undefined;
         const rows = spacedDates(first, a.intervals_days, exam).filter((row) => !row.skipped);
         let added = false;
         rows.forEach((row, i) => {
@@ -466,13 +479,13 @@ export const tools: ToolDef<Api>[] = [
     "make_study_plan",
     "build_study_plan",
     "Build a study plan",
-    "Build a day by day study plan for one or more exams. Give each exam date and the hours you have per day, or set different hours for each weekday with hours_per_weekday, and get dated study sessions split by urgency, with a warning when the hours do not fit. Give an exam topics with their own hours and the plan names the topic of each day. Example prompt: \"Plan 3 weeks of study for my 4 exams, 90 minutes a day.\"",
+    "Build a day by day study plan for one or more exams. Give each exam date and the hours you have per day, or set different hours for each weekday with hours_per_weekday, and get dated study sessions split by urgency, with a warning when the hours do not fit. Give an exam topics with their own hours and the plan names the topic of each day. Dates can be plain text, like Dec 12 or in 3 weeks. Example prompt: \"Plan 3 weeks of study for my 4 exams, 90 minutes a day.\"",
   ),
   alias(
     "spaced_repetition_dates",
     "make_spaced_repetition_schedule",
     "Make a spaced repetition schedule",
-    "Make a spaced repetition schedule for a topic: every review date at expanding intervals from the day you first studied it, with any date on or after the exam marked to skip. Use next_review_dates when you want the next review date only. Example prompt: \"When should I review what I learned today for my exam on 2026-11-30?\"",
+    "Make a spaced repetition schedule for a topic: every review date at expanding intervals from the day you first studied it, with any date on or after the exam marked to skip. Use next_review_dates when you want the next review date only. Dates can be plain text, like Dec 12 or in 3 weeks. Example prompt: \"When should I review what I learned today for my exam on 2026-11-30?\"",
   ),
   alias(
     "pomodoro_plan",
@@ -484,6 +497,6 @@ export const tools: ToolDef<Api>[] = [
     "assignment_milestones",
     "list_assignment_milestones",
     "List assignment milestones",
-    "List dated milestones that split a big assignment from a start date to the due date, with default steps for research, outline, draft, revise and proofread. Example prompt: \"Break my 6 hour essay due 2026-11-20 into milestones.\"",
+    "List dated milestones that split a big assignment from a start date to the due date, with default steps for research, outline, draft, revise and proofread. Dates can be plain text, like Dec 12 or in 3 weeks. Example prompt: \"Break my 6 hour essay due 2026-11-20 into milestones.\"",
   ),
 ];

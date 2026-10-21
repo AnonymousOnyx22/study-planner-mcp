@@ -5,20 +5,21 @@
 ## Setup
 - Run with npx -y study-planner-mcp
 - No environment variables, no network and no account.
-- Dates are YYYY-MM-DD. If start_date is left out it uses today's date.
+- Dates can be YYYY-MM-DD like 2026-12-12, or plain text like Dec 12, next Friday or in 3 weeks. If start_date is left out it uses today's date.
+- A month name without a year means the next one that has not passed yet, so Dec 12 asked for in October means 12 December of that year. A weekday means the coming one, next Friday means the Friday of the week after that, and last Friday the one before. Dates with a number for the month, like 12/12/2026, are not read, so write the month as a name.
 - next_review_dates counts from the day you first studied the topic and leaves out any review on or after the exam. Give from_date to say which day to count from, so the answer is repeatable.
 - Study hours go in hours_per_day for every study day, and in hours_per_weekday when a weekday has its own hours, like [{day: "mon", hours: 2}, {day: "sat", hours: 6}]. Weekdays you leave out of that list use hours_per_day, a weekday with 0 hours is a day off, and days in days_off are always left out.
 - An exam can carry topics with their own hours, like exams: [{name: "Networking", date: "2026-12-10", topics: [{name: "Routing", hours_needed: 6}, {name: "Switching", hours_needed: 4}]}]. The plan then names the topic of every study day, and what_to_study_today names the topic of one day. Leave hours_needed off a topic and the hours of the exam are split evenly over the topics.
 - Config file per client: Claude Desktop uses mcpServers, Cursor uses mcpServers in .cursor/mcp.json or ~/.cursor/mcp.json, VS Code Copilot uses servers in .vscode/mcp.json, and the ChatGPT desktop app takes the same mcpServers JSON as a connector.
 
 ## Tools
-- build_study_plan: Build a day by day study plan for one or more exams. Give each exam date and the hours you have per day, or set different hours for each weekday with hours_per_weekday, and get dated study sessions split by urgency, with a warning when the hours do not fit. Give an exam topics with their own hours and the plan names the topic of each day. Example prompt: "Plan 3 weeks of study for my 4 exams, 90 minutes a day."
-- make_spaced_repetition_schedule: Make a spaced repetition schedule for a topic: every review date at expanding intervals from the day you first studied it, with any date on or after the exam marked to skip. Use next_review_dates when you want the next review date only. Example prompt: "When should I review what I learned today for my exam on 2026-11-30?"
-- next_review_dates: Give the date of the next review for one topic, so you get a single date instead of the whole schedule. It is the first review that is not on or after the exam and has not passed yet, counting from the day you first studied it. The answer counts the reviews that already passed. Use make_spaced_repetition_schedule when you want every review date. Example prompt: "When should I review the routing I studied on 2026-11-01 for my exam on 2026-11-30?"
+- build_study_plan: Build a day by day study plan for one or more exams. Give each exam date and the hours you have per day, or set different hours for each weekday with hours_per_weekday, and get dated study sessions split by urgency, with a warning when the hours do not fit. Give an exam topics with their own hours and the plan names the topic of each day. Dates can be plain text, like Dec 12 or in 3 weeks. Example prompt: "Plan 3 weeks of study for my 4 exams, 90 minutes a day."
+- make_spaced_repetition_schedule: Make a spaced repetition schedule for a topic: every review date at expanding intervals from the day you first studied it, with any date on or after the exam marked to skip. Use next_review_dates when you want the next review date only. Dates can be plain text, like Dec 12 or in 3 weeks. Example prompt: "When should I review what I learned today for my exam on 2026-11-30?"
+- next_review_dates: Give the date of the next review for one topic, so you get a single date instead of the whole schedule. It is the first review that is not on or after the exam and has not passed yet, counting from the day you first studied it. The answer counts the reviews that already passed. Use make_spaced_repetition_schedule when you want every review date. Dates can be plain text, like Dec 12 or in 3 weeks. Example prompt: "When should I review the routing I studied on 2026-11-01 for my exam on 2026-11-30?"
 - plan_pomodoro_sessions: Plan pomodoro sessions for a total amount of study time: work blocks separated by short breaks, with a long break after a set number of sessions. Example prompt: "Plan 3 hours of studying as pomodoro blocks with breaks."
-- list_assignment_milestones: List dated milestones that split a big assignment from a start date to the due date, with default steps for research, outline, draft, revise and proofread. Example prompt: "Break my 6 hour essay due 2026-11-20 into milestones."
-- export_study_plan_ics: Turn a study plan into an .ics calendar file to import into Google Calendar or Apple Calendar. It builds the same plan as build_study_plan, with the same hours_per_weekday if you set one, and answers with the whole file, so save the answer as plan.ics and open it. Every study session becomes an all day event that shows as free, with the topics of the session in its description when the exam has topics, and every exam becomes an all day event that shows as busy unless include_exams is false. Example prompt: "Export my plan for a networking exam on 2026-12-12, 6 hours, starting 2026-12-07, as an ICS file."
-- what_to_study_today: Answer what to study on one day in a single call: the study sessions your plan gives for that day, with the topic of each session when the exams have topics, plus the spaced repetition reviews that are due that day or are late. Give the same exams and hours you use in build_study_plan, including hours_per_weekday, and the topics you are reviewing with the day you first studied each one. Leave date out and it uses today's date. Example prompt: "What should I study today? I have a networking exam on 2026-12-12 and I studied routing on 2026-11-27."
+- list_assignment_milestones: List dated milestones that split a big assignment from a start date to the due date, with default steps for research, outline, draft, revise and proofread. Dates can be plain text, like Dec 12 or in 3 weeks. Example prompt: "Break my 6 hour essay due 2026-11-20 into milestones."
+- export_study_plan_ics: Turn a study plan into an .ics calendar file to import into Google Calendar or Apple Calendar. It builds the same plan as build_study_plan, with the same hours_per_weekday if you set one, and answers with the whole file, so save the answer as plan.ics and open it. Every study session becomes an all day event that shows as free, with the topics of the session in its description when the exam has topics, and every exam becomes an all day event that shows as busy unless include_exams is false. Dates can be plain text, like Dec 12 or in 3 weeks. Example prompt: "Export my plan for a networking exam on 2026-12-12, 6 hours, starting 2026-12-07, as an ICS file."
+- what_to_study_today: Answer what to study on one day in a single call: the study sessions your plan gives for that day, with the topic of each session when the exams have topics, plus the spaced repetition reviews that are due that day or are late. Give the same exams and hours you use in build_study_plan, including hours_per_weekday, and the topics you are reviewing with the day you first studied each one. Leave date out and it uses today's date. Dates can be plain text, like Dec 12 or in 3 weeks. Example prompt: "What should I study today? I have a networking exam on 2026-12-12 and I studied routing on 2026-11-27."
 - Aliases: make_study_plan, spaced_repetition_dates, pomodoro_plan and assignment_milestones are older names for the tools above. They take the same arguments and give the same answers, so use the names above when you can.
 - Worked examples: the section below has a prompt, a tool call and the answer for every tool.
 
@@ -63,6 +64,34 @@ Plan from 2026-11-30
 - 2026-12-10 thu  Networking 1.5h, Scripting 1.5h  (3h total)
 - 2026-12-11 fri  Networking 1.5h, Scripting 1.5h  (3h total)
 - 2026-12-12 sat  Scripting 3h  (3h total)
+
+Everything fits.
+```
+
+### A date in plain words
+
+Prompt: "I have a networking exam on Dec 12 2026 and I can study 2 hours a day. Make me a plan."
+
+Tool call: build_study_plan
+
+```json
+{
+  "exams": [{ "name": "Networking", "date": "Dec 12 2026", "hours_needed": 6 }],
+  "hours_per_day": 2,
+  "start_date": "2026-12-07"
+}
+```
+
+Answer:
+
+```text
+Exams
+- Networking on 2026-12-12 sat, 6h planned
+
+Plan from 2026-12-07
+- 2026-12-07 mon  Networking 2h  (2h total)
+- 2026-12-08 tue  Networking 2h  (2h total)
+- 2026-12-09 wed  Networking 2h  (2h total)
 
 Everything fits.
 ```

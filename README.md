@@ -142,6 +142,8 @@ After any of these, try one of the questions at the top of this page.
 
 The original names `make_study_plan`, `spaced_repetition_dates`, `pomodoro_plan` and `assignment_milestones` do the same four jobs with the same parameters, so existing configs and saved prompts keep working.
 
+Every date these tools take can be written in plain words, like `Dec 12` or `in 3 weeks`. See [Dates in plain words](#dates-in-plain-words).
+
 ## Study Planner MCP compared with Brightspace and Canvas
 
 [Brightspace MCP](https://github.com/AnonymousOnyx22/brightspace-d2l-mcp) and [Canvas MCP](https://github.com/AnonymousOnyx22/canvas-lms-student-mcp) read your school site. They tell you what is due, what your grades are and what your teachers announced. They need an account and a sign in.
@@ -203,9 +205,51 @@ The npm listing uses the same words. If you searched for one of them, install th
 
 ## How the study plan works
 
-Each day has the hours of that weekday, which is `hours_per_day` unless you set `hours_per_weekday`. Those hours are shared across the exams that still need work, weighted by how many hours are left divided by how many days remain, so closer and bigger exams get more time. Study stops the day before each exam. If the hours do not fit, the plan says how many are short instead of pretending. Dates are plain calendar dates, so time zones never shift a day.
+Each day has the hours of that weekday, which is `hours_per_day` unless you set `hours_per_weekday`. Those hours are shared across the exams that still need work, weighted by how many hours are left divided by how many days remain, so closer and bigger exams get more time. Study stops the day before each exam. If the hours do not fit, the plan says how many are short instead of pretending. The dates the server works out are plain calendar dates, so time zones never shift a day.
 
 When an exam has topics, the hours the exam gets on a day are split over its topics in proportion to the hours each topic still needs. That way the plan answers which topic to study, not only which exam.
+
+## Dates in plain words
+
+Every date the tools take can be written the way you say it. The server reads the date itself, so the day math stays in tested code.
+
+- `2026-12-12` for a date you know exactly.
+- `Dec 12`, `December 12` or `12 Dec` for a month and a day. Without a year it means the next one that has not passed yet, so asked for in October, `Dec 12` means 12 December of that year, and asked for in December it means 12 December of the next year.
+- `Dec 12 2026` when you want a year of your own.
+- `today`, `tomorrow` and `yesterday`.
+- `in 3 days`, `in 2 weeks`, `in 3 months` and `in 1 year`, counted from today. Number words work too, like `in two weeks`.
+- `3 days ago` and `2 weeks ago` for the days behind you.
+- `Friday` for the coming Friday, `next Friday` for the Friday of the week after that, and `last Friday` for the one before.
+
+This works in every date the tools take: the exam dates, `start_date`, `due_date`, `first_study_date`, `exam_date`, `from_date` and the `date` of `what_to_study_today`.
+
+Dates with a number for the month, like `12/12/2026`, are not read, because the order of the numbers is not clear. Write the month as a name, like `Dec 12 2026`.
+
+Tool call:
+
+```json
+{
+  "exams": [{ "name": "Networking", "date": "Dec 12 2026", "hours_needed": 6 }],
+  "start_date": "2026-12-07",
+  "hours_per_day": 2
+}
+```
+
+The answer:
+
+```text
+Exams
+- Networking on 2026-12-12 sat, 6h planned
+
+Plan from 2026-12-07
+- 2026-12-07 mon  Networking 2h  (2h total)
+- 2026-12-08 tue  Networking 2h  (2h total)
+- 2026-12-09 wed  Networking 2h  (2h total)
+
+Everything fits.
+```
+
+The date `2026-12-12` gives the same plan.
 
 ## Different hours each day of the week
 

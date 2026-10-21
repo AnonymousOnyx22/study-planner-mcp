@@ -1,4 +1,5 @@
-import { addDays, fmt, label, studyPlan } from "./plan.js";
+import { addDays, fmt, label } from "./dates.js";
+import { studyPlan } from "./plan.js";
 
 type Plan = ReturnType<typeof studyPlan>;
 

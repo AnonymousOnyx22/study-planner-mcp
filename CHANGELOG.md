@@ -21,6 +21,7 @@
 
 ## Unreleased
 
+- Every date the tools take can now be written in plain words: `Dec 12`, `12 Dec`, `Dec 12 2026`, `today`, `tomorrow`, `yesterday`, `in 3 weeks`, `3 days ago`, and `Friday`, `next Friday` or `last Friday`. The server reads the date itself, so the day math stays in tested code. A month name without a year means the next one that has not passed yet, and a date with a number for the month, like `12/12/2026`, is not read because the order of the numbers is not clear.
 - llms.txt now has a worked example for every tool: the prompt, the tool call with its arguments, and the answer that comes back. A test runs each of those calls and checks that the answer in the file is the answer the tool gives, so the examples cannot drift from the code.
 - The server.json description now says the server runs offline and needs no account, so the registry listing says what sets it apart from the school site servers that need a sign in.
 - `next_review_dates` now gives one date, the next review for a topic, instead of the whole schedule. It keeps the same arguments, takes an optional `from_date` to say which day to count from, and counts the reviews that have already passed. `make_spaced_repetition_schedule` and `spaced_repetition_dates` still give every review date.

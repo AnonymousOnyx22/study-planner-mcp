@@ -1,30 +1,8 @@
-export const DAY_MS = 86400000;
+import { DAY_MS, addDays, fmt, parseDateInput } from "./dates.js";
+
+export { DAY_MS, addDays, fmt, label, parseDate, today } from "./dates.js";
+
 const NAMES = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
-
-export function parseDate(s: string): Date {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s.trim());
-  if (!m) throw new Error(`"${s}" is not a date. Use YYYY-MM-DD, try 2026-12-12.`);
-  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
-  if (d.getUTCMonth() !== Number(m[2]) - 1) throw new Error(`"${s}" is not a real calendar date; try 2026-11-14.`);
-  return d;
-}
-
-export function fmt(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
-
-export function label(d: Date): string {
-  return `${fmt(d)} ${NAMES[d.getUTCDay()]}`;
-}
-
-export function addDays(d: Date, n: number): Date {
-  return new Date(d.getTime() + n * DAY_MS);
-}
-
-export function today(): Date {
-  const n = new Date();
-  return new Date(Date.UTC(n.getFullYear(), n.getMonth(), n.getDate()));
-}
 
 export function weekdayIndex(name: string): number {
   const i = NAMES.indexOf(name.slice(0, 3).toLowerCase());
@@ -180,7 +158,7 @@ export function studyPlan(exams: ExamInput[], startDate: Date, hoursPerDay: numb
   const work = exams.map((e) => {
     const t = topicPlan(e);
     const need = t ? t.need : e.hours_needed ?? 10;
-    return { name: e.name, exam: parseDate(e.date), need, left: need, topics: t?.topics };
+    return { name: e.name, exam: parseDateInput(e.date), need, left: need, topics: t?.topics };
   });
   for (const w of work) {
     if (w.exam.getTime() <= startDate.getTime()) throw new Error(`${w.name} is on ${fmt(w.exam)}, which is not after the start date ${fmt(startDate)}.`);

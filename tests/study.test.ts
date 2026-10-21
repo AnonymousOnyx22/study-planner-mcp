@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createServer } from "../src/server.js";
-import { parseDate, fmt, studyPlan, pomodoro, milestones, spacedDates, nextReview, planForDay, weekdayHours } from "../src/plan.js";
+import { parseDate, fmt, studyPlan, pomodoro, milestones, spacedDates, nextReview, planForDay, weekdayHours, today, addDays } from "../src/plan.js";
 import { studyPlanIcs } from "../src/ics.js";
 
 let client: Client;
@@ -400,6 +400,16 @@ describe("MCP tools", () => {
     expect(r.isError).toBe(false);
     expect(r.text).toBe(answer![1].trimEnd());
   });
+  it("shows a real plan made from a plain date in the README", async () => {
+    const section = readmeSection("Dates in plain words");
+    const json = /Tool call:\n\n```json\n([\s\S]*?)```/.exec(section);
+    const answer = /The answer:\n\n```text\n([\s\S]*?)```/.exec(section);
+    expect(json?.[1]).toBeTruthy();
+    expect(answer?.[1]).toBeTruthy();
+    const r = await call("build_study_plan", JSON.parse(json![1]));
+    expect(r.isError).toBe(false);
+    expect(r.text).toBe(answer![1].trimEnd());
+  });
   it("shows a real plan with topics in the README", async () => {
     const section = readmeSection("Hours per topic");
     const calls = [...section.matchAll(/Tool call:\n\n```json\n([\s\S]*?)```/g)].map((m) => m[1]);
@@ -531,6 +541,58 @@ describe("MCP tools", () => {
     const r = await call("next_review_dates", { topic: "Routing", intervals_days: [] });
     expect(r.isError).toBe(true);
     expect(r.text).toContain("at least one number of days");
+  });
+});
+
+describe("dates in plain words", () => {
+  const plan = { exams: [{ name: "Networking", date: "Dec 12 2026", hours_needed: 6 }], start_date: "2026-12-07", hours_per_day: 2 };
+
+  it("takes a month name and a day for the exam date", async () => {
+    const r = await call("build_study_plan", plan);
+    expect(r.isError).toBe(false);
+    expect(r.text).toContain("Networking on 2026-12-12 sat, 6h planned");
+    expect(r.text).toContain("Everything fits.");
+  });
+  it("takes a month name without a year for the exam date", async () => {
+    const r = await call("build_study_plan", { ...plan, exams: [{ name: "Networking", date: "Dec 12", hours_needed: 6 }] });
+    expect(r.isError).toBe(false);
+    expect(r.text).toMatch(/- Networking on 20\d\d-12-12 sat, 6h planned/);
+  });
+  it("gives the same plan for a plain date and for the date it stands for", async () => {
+    const plain = await call("build_study_plan", plan);
+    const iso = await call("build_study_plan", { ...plan, exams: [{ name: "Networking", date: "2026-12-12", hours_needed: 6 }] });
+    expect(plain.text).toBe(iso.text);
+  });
+  it("counts a relative date from today", async () => {
+    const plain = await call("build_study_plan", { exams: [{ name: "Networking", date: "in 3 weeks", hours_needed: 6 }], hours_per_day: 2 });
+    const iso = await call("build_study_plan", { exams: [{ name: "Networking", date: fmt(addDays(today(), 21)), hours_needed: 6 }], hours_per_day: 2 });
+    expect(plain.text).toBe(iso.text);
+    expect(plain.text).toContain(`Plan from ${fmt(today())}`);
+  });
+  it("takes a plain date for the day, the exam and the reviews", async () => {
+    const r = await call("what_to_study_today", {
+      date: "today",
+      exams: [{ name: "Networking", date: "in 3 weeks" }],
+      reviews: [{ topic: "Routing", first_study_date: "3 days ago" }],
+    });
+    expect(r.isError).toBe(false);
+    expect(r.text).toContain(`Today ${fmt(today())}`);
+    expect(r.text).toContain("Reviews to catch up");
+  });
+  it("takes a plain date for the due date of an assignment", async () => {
+    const r = await call("list_assignment_milestones", { title: "Essay", due_date: "in 2 weeks", estimated_hours: 6 });
+    expect(r.isError).toBe(false);
+    expect(r.text).toContain(`due ${fmt(addDays(today(), 14))}`);
+  });
+  it("says which forms of a date it reads", async () => {
+    const r = await call("build_study_plan", { exams: [{ name: "Networking", date: "someday" }] });
+    expect(r.isError).toBe(true);
+    expect(r.text).toContain("plain text like Dec 12, next Friday or in 3 weeks");
+  });
+  it("says why a date it read is not a date", async () => {
+    const r = await call("build_study_plan", { exams: [{ name: "Networking", date: "Feb 30" }] });
+    expect(r.isError).toBe(true);
+    expect(r.text).toContain("There is no 30 February");
   });
 });
 
