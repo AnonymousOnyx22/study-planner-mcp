@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { type ToolDef, bullets } from "./core/tools.js";
 import { studyPlanIcs } from "./ics.js";
-import { addDays, fmt, label, milestones, parseDate, pomodoro, spacedDates, studyPlan, today, weekdayIndex } from "./plan.js";
+import { DAY_MS, fmt, label, milestones, parseDate, planForDay, pomodoro, spacedDates, studyPlan, today, weekdayIndex } from "./plan.js";
 
 type Api = null;
 
@@ -48,39 +48,61 @@ function numberField(name: string, example = 3, min = 0, max?: number, integer =
   return s;
 }
 
+const EXAM_HINT = 'try exams: [{name: "Networking", date: "2026-12-12", hours_needed: 6}]';
+
+const examItem = z.object({
+  name: textField("name", "Networking"),
+  date: dateField("exam_date"),
+  hours_needed: numberField("hours_needed", 10, 0).optional().describe("Study hours you want to put in. Defaults to 10."),
+});
+
+/** The list of exams, shared by the tools that plan study time. */
+function examList(required: boolean) {
+  return z.array(examItem, {
+    error: (iss) =>
+      iss.input === undefined && required
+        ? `exams is required; ${EXAM_HINT}`
+        : `exams must be a list of exams; ${EXAM_HINT}`,
+  });
+}
+
+function hoursPerDay() {
+  return numberField("hours_per_day", 3, 0, 16).default(3).describe("Study hours available on a study day.");
+}
+
+function daysOff() {
+  return z
+    .array(textField("days_off", "sun"), {
+      error: (iss) =>
+        iss.input === undefined
+          ? 'days_off is required; try days_off: ["sun"]'
+          : 'days_off must be a list of weekday names; try days_off: ["sun"]',
+    })
+    .default([])
+    .describe('Weekdays with no studying, like ["sun"].');
+}
+
 /** The arguments every plan building tool takes, kept in one place so they never drift apart. */
 function planFields() {
   return {
-    exams: z
-      .array(
-        z.object({
-          name: textField("name", "Networking"),
-          date: dateField("exam_date"),
-          hours_needed: numberField("hours_needed", 10, 0).optional().describe("Study hours you want to put in. Defaults to 10."),
-        }),
-        {
-          error: (iss) =>
-            iss.input === undefined
-              ? "exams is required; try exams: [{name: \"Networking\", date: \"2026-12-12\", hours_needed: 6}]"
-              : "exams must be a list of exams; try exams: [{name: \"Networking\", date: \"2026-12-12\", hours_needed: 6}]",
-        },
-      )
-      .min(1, {
-        error: "exams must have at least 1 exam; try exams: [{name: \"Networking\", date: \"2026-12-12\", hours_needed: 6}]",
-      })
+    exams: examList(true)
+      .min(1, { error: `exams must have at least 1 exam; ${EXAM_HINT}` })
       .describe("Exams with name, date and optional hours needed."),
-    hours_per_day: numberField("hours_per_day", 3, 0, 16).default(3).describe("Study hours available on a study day."),
-    days_off: z
-      .array(textField("days_off", "sun"), {
-        error: (iss) =>
-          iss.input === undefined
-            ? "days_off is required; try days_off: [\"sun\"]"
-            : "days_off must be a list of weekday names; try days_off: [\"sun\"]",
-      })
-      .default([])
-      .describe('Weekdays with no studying, like ["sun"].'),
+    hours_per_day: hoursPerDay(),
+    days_off: daysOff(),
     start_date: dateField("start_date").optional().describe("First day to study. Defaults to today."),
   };
+}
+
+/** "1st", "2nd", "3rd" and so on, for naming reviews in order. */
+function ordinal(n: number): string {
+  const teen = n % 100 >= 11 && n % 100 <= 13;
+  const last = n % 10;
+  if (teen) return `${n}th`;
+  if (last === 1) return `${n}st`;
+  if (last === 2) return `${n}nd`;
+  if (last === 3) return `${n}rd`;
+  return `${n}th`;
 }
 
 const core: ToolDef<Api>[] = [
@@ -203,6 +225,104 @@ const core: ToolDef<Api>[] = [
       const start = a.start_date ? parseDate(a.start_date) : today();
       const plan = studyPlan(a.exams, start, a.hours_per_day, a.days_off.map(weekdayIndex));
       return studyPlanIcs(plan, { includeExams: a.include_exams });
+    },
+  },
+  {
+    name: "what_to_study_today",
+    title: "What to study today",
+    description:
+      "Answer what to study on one day in a single call: the study sessions your plan gives for that day, plus the spaced repetition reviews that are due that day or are late. Give the same exams and hours you use in build_study_plan, and the topics you are reviewing with the day you first studied each one. Example prompt: \"What should I study today? I have a networking exam on 2026-12-12 and I studied routing on 2026-11-27.\"",
+    inputSchema: {
+      date: dateField("date").optional().describe("The day to show. Defaults to today."),
+      exams: examList(false).optional().describe("Exams with name, date and optional hours needed. Leave it out to show reviews only."),
+      hours_per_day: hoursPerDay(),
+      days_off: daysOff(),
+      start_date: dateField("start_date").optional().describe("First day of the plan. Defaults to the day you are asking about."),
+      reviews: z
+        .array(
+          z.object({
+            topic: textField("topic", "Routing"),
+            first_study_date: dateField("first_study_date").optional().describe("The day you first studied it. Defaults to the day you are asking about."),
+            exam_date: dateField("exam_date").optional().describe("Exam date, if any. Reviews on or after it are skipped."),
+          }),
+          {
+            error: () => 'reviews must be a list of topics; try reviews: [{topic: "Routing", first_study_date: "2026-11-27"}]',
+          },
+        )
+        .optional()
+        .describe("Topics you are reviewing, with the day you first studied each one."),
+      intervals_days: z
+        .array(numberField("intervals_days", 7, 0, undefined, true), {
+          error: (iss) =>
+            iss.input === undefined
+              ? "intervals_days is required; try intervals_days: [1, 3, 7, 14, 30]"
+              : "intervals_days must be a list of whole days; try intervals_days: [1, 3, 7, 14, 30]",
+        })
+        .default([1, 3, 7, 14, 30])
+        .describe("Days after the first study to review."),
+    },
+    run: async (a) => {
+      const day = a.date ? parseDate(a.date) : today();
+      const start = a.start_date ? parseDate(a.start_date) : day;
+      const exams = a.exams ?? [];
+      const reviews = a.reviews ?? [];
+      const out: string[] = [`Today ${label(day)}`];
+
+      let nextExam: { name: string; date: Date; left: number } | undefined;
+      if (exams.length) {
+        const plan = planForDay(exams, start, day, a.hours_per_day, a.days_off.map(weekdayIndex));
+        if (plan.day) {
+          const total = plan.day.items.reduce((s, i) => s + i.hours, 0);
+          out.push("", `Study sessions, ${total}h total`, bullets(plan.day.items.map((i) => `${i.name} ${i.hours}h`)));
+        } else if (plan.next) {
+          const total = plan.next.items.reduce((s, i) => s + i.hours, 0);
+          const when = start.getTime() > day.getTime() ? `The plan starts on ${label(plan.next.date)}` : `Next study day ${label(plan.next.date)}`;
+          out.push("", `No study session today. ${when}, ${total}h total`, bullets(plan.next.items.map((i) => `${i.name} ${i.hours}h`)));
+        } else {
+          out.push("", "No study session today.");
+        }
+        if (plan.short.length) {
+          out.push("", `Not enough time. ${plan.short.map((s) => `${s.name} is ${s.hours}h short`).join(", ")}. Add study days, raise hours per day or lower the hours needed.`);
+        }
+        const upcoming = plan.exams
+          .filter((e) => e.date.getTime() >= day.getTime())
+          .sort((x, y) => x.date.getTime() - y.date.getTime());
+        if (upcoming.length) {
+          const e = upcoming[0];
+          nextExam = { name: e.name, date: e.date, left: Math.round((e.date.getTime() - day.getTime()) / DAY_MS) };
+        }
+      }
+
+      const due: { topic: string; date: Date; n: number; late: number }[] = [];
+      const next: { topic: string; date: Date; n: number }[] = [];
+      for (const r of reviews) {
+        const first = r.first_study_date ? parseDate(r.first_study_date) : day;
+        const exam = r.exam_date ? parseDate(r.exam_date) : undefined;
+        const rows = spacedDates(first, a.intervals_days, exam).filter((row) => !row.skipped);
+        let added = false;
+        rows.forEach((row, i) => {
+          if (row.date.getTime() <= day.getTime()) {
+            due.push({ topic: r.topic, date: row.date, n: i + 1, late: Math.round((day.getTime() - row.date.getTime()) / DAY_MS) });
+          } else if (!added) {
+            next.push({ topic: r.topic, date: row.date, n: i + 1 });
+            added = true;
+          }
+        });
+      }
+      const onTime = due.filter((d) => d.late === 0);
+      const late = due.filter((d) => d.late > 0);
+      if (onTime.length) out.push("", "Reviews due today", bullets(onTime.map((d) => `${d.topic}, ${ordinal(d.n)} review`)));
+      if (late.length) out.push("", "Reviews to catch up", bullets(late.map((d) => `${d.topic}, ${ordinal(d.n)} review, ${d.late} ${d.late === 1 ? "day" : "days"} late (due ${fmt(d.date)})`)));
+      if (next.length) out.push("", "Next reviews", bullets(next.map((n) => `${n.topic} on ${label(n.date)}, ${ordinal(n.n)} review`)));
+
+      if (!exams.length && !reviews.length) {
+        out.push("", "Nothing to show. Pass exams with their dates, or reviews with the day you first studied each topic.");
+      }
+      if (nextExam) {
+        const left = nextExam.left > 0 ? `, ${nextExam.left} days left` : ", today";
+        out.push("", `Next exam: ${nextExam.name} on ${label(nextExam.date)}${left}.`);
+      }
+      return out.join("\n");
     },
   },
 ];

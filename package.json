@@ -1,7 +1,7 @@
 {
   "name": "study-planner-mcp",
   "version": "0.1.3",
-  "description": "Study planner MCP server. Give it your exam dates and daily study hours and it builds an exam schedule, a study timetable with spaced repetition review dates, pomodoro blocks and assignment milestones. It also hands back the plan as an .ics file to import into Google Calendar or Apple Calendar. Runs offline, no account.",
+  "description": "Study planner MCP server. Give it your exam dates and daily study hours and it builds an exam schedule, a study timetable with spaced repetition review dates, pomodoro blocks and assignment milestones. It also hands back the plan as an .ics file to import into Google Calendar or Apple Calendar. Ask it what to study today and it merges the study sessions for that day with the reviews that are due. Runs offline, no account.",
   "type": "module",
   "main": "build/src/index.js",
   "bin": {

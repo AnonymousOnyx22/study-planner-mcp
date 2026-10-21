@@ -8,6 +8,7 @@ Ask it things like:
 
 - "I have a networking exam on Dec 12 and scripting on Dec 15. I can study 3 hours a day except Sundays. Make me a plan."
 - "When should I review what I learned today so I remember it for my exam on Nov 30?"
+- "What should I study today? My networking exam is on Dec 12 and I studied routing last Friday."
 - "Plan 3 hours of studying as pomodoro blocks with breaks."
 - "Break my 6 hour essay due Friday into milestones."
 - "Give me this plan as an .ics file so I can import it into Google Calendar."
@@ -135,6 +136,7 @@ After any of these, try one of the questions at the top of this page.
 | `list_assignment_milestones` | Dated milestones that split a big assignment into research, outline, draft, revise and proofread |
 | `next_review_dates` | The next review dates for a topic, computed from the day you first studied it |
 | `export_study_plan_ics` | The same plan as an `.ics` calendar file, with one all day event per study session and one per exam, ready to open or import into Google Calendar or Apple Calendar |
+| `what_to_study_today` | What to study on one day: the study sessions from your plan for that day, plus the spaced repetition reviews that are due that day or are late |
 
 The original names `make_study_plan`, `spaced_repetition_dates`, `pomodoro_plan` and `assignment_milestones` do the same four jobs with the same parameters, so existing configs and saved prompts keep working.
 
@@ -219,6 +221,41 @@ SUMMARY:Study: Networking 2h
 DESCRIPTION:Networking\, 2h of study. Day total 2h. Exam on 2026-12-12 sat.
 TRANSP:TRANSPARENT
 END:VEVENT
+```
+
+## What to study today
+
+`what_to_study_today` answers one day in one call. It merges the study sessions your plan gives for that day with the spaced repetition reviews that are due that day or are late. Pass the same exams and hours you use in `build_study_plan`, and the topics you are reviewing with the day you first studied each one. Leave `date` out and it uses today's date. Pass `start_date` if your plan already has a first day, so the sessions match the plan you made earlier.
+
+Tool call:
+
+```json
+{
+  "date": "2026-11-30",
+  "exams": [{ "name": "Networking", "date": "2026-12-12", "hours_needed": 12 }],
+  "hours_per_day": 2,
+  "reviews": [{ "topic": "Routing", "first_study_date": "2026-11-27" }]
+}
+```
+
+The answer:
+
+```text
+Today 2026-11-30 mon
+
+Study sessions, 2h total
+- Networking 2h
+
+Reviews due today
+- Routing, 2nd review
+
+Reviews to catch up
+- Routing, 1st review, 2 days late (due 2026-11-28)
+
+Next reviews
+- Routing on 2026-12-04 fri, 3rd review
+
+Next exam: Networking on 2026-12-12 sat, 12 days left.
 ```
 
 ## Development

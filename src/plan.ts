@@ -99,6 +99,29 @@ export function studyPlan(exams: ExamInput[], startDate: Date, hoursPerDay: numb
   return { days, short, exams: work.map((w) => ({ name: w.name, date: w.exam, need: w.need })) };
 }
 
+export interface PlanDay {
+  /** The plan day that falls on the date you asked about, if there is one. */
+  day?: DayPlan;
+  /** The first study day after that date, if there is one. */
+  next?: DayPlan;
+  /** Exams whose hours did not fit in the plan. */
+  short: { name: string; hours: number }[];
+  /** Every exam in the plan with its date and its planned hours. */
+  exams: { name: string; date: Date; need: number }[];
+}
+
+/** Pick one day out of a study plan, plus the next study day after it. */
+export function planForDay(exams: ExamInput[], startDate: Date, target: Date, hoursPerDay: number, daysOff: number[]): PlanDay {
+  const plan = studyPlan(exams, startDate, hoursPerDay, daysOff);
+  const key = fmt(target);
+  return {
+    day: plan.days.find((d) => fmt(d.date) === key),
+    next: plan.days.find((d) => d.date.getTime() > target.getTime()),
+    short: plan.short,
+    exams: plan.exams,
+  };
+}
+
 export function spacedDates(first: Date, intervals: number[], examDate?: Date): { date: Date; day: number; skipped: boolean }[] {
   return intervals.map((n) => {
     const date = addDays(first, n);

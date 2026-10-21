@@ -21,6 +21,7 @@
 
 ## Unreleased
 
+- Added `what_to_study_today`, which merges the study sessions from your plan for that day with the spaced repetition reviews that are due that day or are late, so one call answers what to do today. Pass the day you want, the exams and hours you use in `build_study_plan`, and the topics you are reviewing with the day you first studied each one.
 - The README now has one install section per client, with the exact JSON for Claude Desktop, ChatGPT, Cursor and VS Code Copilot, and the file each app reads it from.
 - llms.txt now leads with the current tool names and puts the older names on a single Aliases line, so a client model picks the current names first.
 - Added `export_study_plan_ics`, which answers with the plan as an `.ics` calendar file: one all day event per study session plus one per exam, ready to open or import in Google Calendar or Apple Calendar. `include_exams: false` leaves the exams out.

@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createServer } from "../src/server.js";
-import { parseDate, fmt, studyPlan, pomodoro, milestones, spacedDates } from "../src/plan.js";
+import { parseDate, fmt, studyPlan, pomodoro, milestones, spacedDates, planForDay } from "../src/plan.js";
 import { studyPlanIcs } from "../src/ics.js";
 
 let client: Client;
@@ -55,6 +55,15 @@ describe("plan math", () => {
     expect(fmt(rows[1].date)).toBe("2026-11-10");
     expect(rows.reduce((s, r) => s + r.hours, 0)).toBe(10);
   });
+  it("picks one day out of a plan and the study day after it", () => {
+    const exams = [{ name: "Net", date: "2026-12-12", hours_needed: 6 }];
+    const picked = planForDay(exams, parseDate("2026-12-07"), parseDate("2026-12-08"), 2, [0]);
+    expect(picked.day?.items).toEqual([{ name: "Net", hours: 2 }]);
+    expect(fmt(picked.next?.date ?? parseDate("2026-12-01"))).toBe("2026-12-09");
+    const off = planForDay(exams, parseDate("2026-12-06"), parseDate("2026-12-06"), 2, [0]);
+    expect(off.day).toBeUndefined();
+    expect(fmt(off.next?.date ?? parseDate("2026-12-01"))).toBe("2026-12-07");
+  });
 });
 
 describe("calendar file", () => {
@@ -105,7 +114,7 @@ describe("calendar file", () => {
 });
 
 describe("MCP tools", () => {
-  it("lists ten read only tools", async () => {
+  it("lists eleven read only tools", async () => {
     const tools = (await client.listTools()).tools;
     expect(tools.map((t) => t.name).sort()).toEqual([
       "assignment_milestones",
@@ -118,6 +127,7 @@ describe("MCP tools", () => {
       "plan_pomodoro_sessions",
       "pomodoro_plan",
       "spaced_repetition_dates",
+      "what_to_study_today",
     ]);
     for (const t of tools) expect(t.annotations?.readOnlyHint).toBe(true);
   });
@@ -206,6 +216,7 @@ describe("MCP tools", () => {
       "plan_pomodoro_sessions",
       "list_assignment_milestones",
       "export_study_plan_ics",
+      "what_to_study_today",
     ];
     const older = ["make_study_plan", "spaced_repetition_dates", "pomodoro_plan", "assignment_milestones"];
     const lines = llms.split("\n");
@@ -230,6 +241,71 @@ describe("MCP tools", () => {
     expect((await call("next_review_dates", args)).text).toBe(original);
     expect(original).toContain("2026-11-02 mon");
     expect(original).toContain("(after the exam, skip)");
+  });
+});
+
+describe("what to study today", () => {
+  const plan = { exams: [{ name: "Networking", date: "2026-12-12", hours_needed: 12 }], hours_per_day: 2 };
+
+  it("merges the plan sessions for the day with the reviews that are due", async () => {
+    const r = await call("what_to_study_today", {
+      ...plan,
+      date: "2026-11-30",
+      reviews: [{ topic: "Routing", first_study_date: "2026-11-27" }],
+    });
+    expect(r.isError).toBe(false);
+    expect(r.text).toContain("Today 2026-11-30 mon");
+    expect(r.text).toContain("Study sessions, 2h total");
+    expect(r.text).toContain("- Networking 2h");
+    expect(r.text).toContain("Reviews due today");
+    expect(r.text).toContain("- Routing, 2nd review");
+    expect(r.text).toContain("Reviews to catch up");
+    expect(r.text).toContain("- Routing, 1st review, 2 days late (due 2026-11-28)");
+    expect(r.text).toContain("- Routing on 2026-12-04 fri, 3rd review");
+    expect(r.text).toContain("Next exam: Networking on 2026-12-12 sat, 12 days left.");
+  });
+
+  it("shows the next study day when the day asked about is a day off", async () => {
+    const r = await call("what_to_study_today", { ...plan, date: "2026-11-30", days_off: ["mon"] });
+    expect(r.isError).toBe(false);
+    expect(r.text).toContain("No study session today. Next study day 2026-12-01 tue, 2h total");
+  });
+
+  it("shows reviews on their own when there are no exams", async () => {
+    const r = await call("what_to_study_today", { date: "2026-11-30", reviews: [{ topic: "Routing", first_study_date: "2026-11-27" }] });
+    expect(r.isError).toBe(false);
+    expect(r.text).toContain("Reviews due today");
+    expect(r.text).not.toContain("Study sessions");
+    expect(r.text).not.toContain("Next exam");
+  });
+
+  it("skips reviews that fall on or after the exam", async () => {
+    const r = await call("what_to_study_today", {
+      date: "2026-11-30",
+      reviews: [{ topic: "Routing", first_study_date: "2026-11-27", exam_date: "2026-11-29" }],
+    });
+    expect(r.isError).toBe(false);
+    expect(r.text).toContain("- Routing, 1st review, 2 days late (due 2026-11-28)");
+    expect(r.text).not.toContain("2nd review");
+  });
+
+  it("says what to pass when there is nothing to show", async () => {
+    const r = await call("what_to_study_today", { date: "2026-11-30" });
+    expect(r.isError).toBe(false);
+    expect(r.text).toContain("Nothing to show.");
+    expect(r.text).toContain("reviews with the day you first studied each topic");
+  });
+
+  it("shows a real run in the README", async () => {
+    const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
+    const section = readme.split("## What to study today")[1]?.split("\n## ")[0] ?? "";
+    const json = /Tool call:\n\n```json\n([\s\S]*?)```/.exec(section);
+    const answer = /The answer:\n\n```text\n([\s\S]*?)```/.exec(section);
+    expect(json?.[1]).toBeTruthy();
+    expect(answer?.[1]).toBeTruthy();
+    const r = await call("what_to_study_today", JSON.parse(json![1]));
+    expect(r.isError).toBe(false);
+    expect(r.text).toBe(answer![1].trimEnd());
   });
 });
 
