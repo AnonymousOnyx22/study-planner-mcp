@@ -2,7 +2,7 @@ import { z } from "zod";
 import { type ToolDef, bullets } from "./core/tools.js";
 import { studyPlanIcs } from "./ics.js";
 import { DAY_MS, fmt, label, parseDateInput, today } from "./dates.js";
-import { milestones, nextReview, planForDay, pomodoro, spacedDates, studyPlan, weekdayHours, weekdayIndex } from "./plan.js";
+import { milestones, nextReview, planForDay, plannedReviews, pomodoro, spacedDates, studyPlan, weekdayHours, weekdayIndex } from "./plan.js";
 
 type Api = null;
 
@@ -174,6 +174,33 @@ function reviewFields() {
   };
 }
 
+function planReviewFields() {
+  return {
+    reviews: z
+      .array(
+        z.object({
+          topic: textField("topic", "Routing"),
+          first_study_date: dateField("first_study_date").optional().describe(`The day you first studied it. Defaults to the plan start date. ${DATE_HINT}`),
+          exam_date: dateField("exam_date").optional().describe(`Exam date, if any. Reviews on or after it are skipped. ${DATE_HINT}`),
+        }),
+        {
+          error: () => 'reviews must be a list of topics; try reviews: [{topic: "Routing", first_study_date: "2026-11-27"}]',
+        },
+      )
+      .optional()
+      .describe("Topics you are reviewing, with the day you first studied each one."),
+    intervals_days: z
+      .array(numberField("intervals_days", 7, 0, undefined, true), {
+        error: (iss) =>
+          iss.input === undefined
+            ? "intervals_days is required; try intervals_days: [1, 3, 7, 14, 30]"
+            : "intervals_days must be a list of whole days; try intervals_days: [1, 3, 7, 14, 30]",
+      })
+      .default([1, 3, 7, 14, 30])
+      .describe("Days after the first study to review."),
+  };
+}
+
 /** "1st", "2nd", "3rd" and so on, for naming reviews in order. */
 function ordinal(n: number): string {
   const teen = n % 100 >= 11 && n % 100 <= 13;
@@ -215,21 +242,33 @@ const core: ToolDef<Api>[] = [
     name: "make_study_plan",
     title: "Make a study plan",
     description:
-      "Build a day by day study plan for one or more exams. Daily hours are shared across exams by urgency, study stops the day before each exam, and the answer warns when there is not enough time. Set hours_per_weekday when your weekdays and your weekend differ, and give an exam topics with their own hours to get the topic of each day as well. Dates can be plain text, like Dec 12 or in 3 weeks. Example prompt: \"Plan 3 weeks of study for my 4 exams, 90 minutes a day.\"",
-    inputSchema: planFields(),
+      "Build a day by day study plan for one or more exams. Daily hours are shared across exams by urgency, study stops the day before each exam, and the answer warns when there is not enough time. Set hours_per_weekday when your weekdays and your weekend differ, and give an exam topics with their own hours to get the topic of each day as well. Add reviews with the day you first studied each one to show Review: entries in the plan and in the calendar. Dates can be plain text, like Dec 12 or in 3 weeks. Example prompt: \"Plan 3 weeks of study for my 4 exams, 90 minutes a day.\"",
+    inputSchema: { ...planFields(), ...planReviewFields() },
     run: async (a) => {
       const start = a.start_date ? parseDateInput(a.start_date) : today();
       const plan = studyPlan(a.exams, start, a.hours_per_day, a.days_off.map(weekdayIndex), weekdayHours(a.hours_per_weekday));
+      const reviews = a.reviews?.length ? plannedReviews(a.reviews, a.intervals_days, start) : [];
+      if (reviews.length) (plan as any).reviews = reviews;
       const lines = plan.days.map((d) => {
         const head = `${label(d.date)}  ${d.items.map((i) => `${i.name} ${i.hours}h`).join(", ")}  (${d.items.reduce((s, i) => s + i.hours, 0)}h total)`;
         return [head, ...dayTopicLines(d.items)].join("\n");
       });
+      const reviewLines = reviews
+        .filter((r) => plan.days.some((d) => d.date.getTime() === r.date.getTime()))
+        .map((r) => {
+          const examForReview = r.exam ? plan.exams.find((e) => e.date.getTime() === r.exam?.getTime()) : undefined;
+          const examLine = examForReview ? ` for ${examForReview.name}, exam ${label(examForReview.date)}` : "";
+          return `- ${label(r.date)}  Review: ${r.topic}, ${ordinal(r.number)} review${examLine}`;
+        });
       const exams = plan.exams.map((e) => {
         const head = `${e.name} on ${label(e.date)}, ${e.need}h planned`;
         if (!e.topics || e.topics.length === 0) return head;
         return [head, ...e.topics.map((t) => `  - ${t.name} ${t.need}h planned`)].join("\n");
       });
       let out = `Exams\n${bullets(exams)}\n\nPlan from ${fmt(start)}\n${bullets(lines)}`;
+      if (reviewLines.length) {
+        out += `\n\nReviews\n${bullets(reviewLines)}`;
+      }
       if (plan.short.length) {
         const short = plan.short.map((s) => {
           const head = `${s.name} is ${s.hours}h short`;
@@ -347,9 +386,10 @@ const core: ToolDef<Api>[] = [
     name: "export_study_plan_ics",
     title: "Export study plan as ICS",
     description:
-      "Turn a study plan into an .ics calendar file to import into Google Calendar or Apple Calendar. It builds the same plan as build_study_plan, with the same hours_per_weekday if you set one, and answers with the whole file, so save the answer as plan.ics and open it. Every study session becomes an all day event that shows as free, with the topics of the session in its description when the exam has topics, and every exam becomes an all day event that shows as busy unless include_exams is false. Dates can be plain text, like Dec 12 or in 3 weeks. Example prompt: \"Export my plan for a networking exam on 2026-12-12, 6 hours, starting 2026-12-07, as an ICS file.\"",
+      "Turn a study plan into an .ics calendar file to import into Google Calendar or Apple Calendar. It builds the same plan as build_study_plan, with the same hours_per_weekday if you set one, and answers with the whole file, so save the answer as plan.ics and open it. Every study session becomes an all day event that shows as free, with the topics of the session in its description when the exam has topics, and every exam becomes an all day event that shows as busy unless include_exams is false. Add reviews with the day you first studied each one to add Review: all day events to the calendar. Dates can be plain text, like Dec 12 or in 3 weeks. Example prompt: \"Export my plan for a networking exam on 2026-12-12, 6 hours, starting 2026-12-07, as an ICS file.\"",
     inputSchema: {
       ...planFields(),
+      ...planReviewFields(),
       include_exams: z
         .boolean()
         .default(true)
@@ -358,6 +398,9 @@ const core: ToolDef<Api>[] = [
     run: async (a) => {
       const start = a.start_date ? parseDateInput(a.start_date) : today();
       const plan = studyPlan(a.exams, start, a.hours_per_day, a.days_off.map(weekdayIndex), weekdayHours(a.hours_per_weekday));
+      if (a.reviews?.length) {
+        (plan as any).reviews = plannedReviews(a.reviews, a.intervals_days, start);
+      }
       return studyPlanIcs(plan, { includeExams: a.include_exams });
     },
   },
@@ -479,7 +522,7 @@ export const tools: ToolDef<Api>[] = [
     "make_study_plan",
     "build_study_plan",
     "Build a study plan",
-    "Build a day by day study plan for one or more exams. Give each exam date and the hours you have per day, or set different hours for each weekday with hours_per_weekday, and get dated study sessions split by urgency, with a warning when the hours do not fit. Give an exam topics with their own hours and the plan names the topic of each day. Dates can be plain text, like Dec 12 or in 3 weeks. Example prompt: \"Plan 3 weeks of study for my 4 exams, 90 minutes a day.\"",
+    "Build a day by day study plan for one or more exams. Give each exam date and the hours you have per day, or set different hours for each weekday with hours_per_weekday, and get dated study sessions split by urgency, with a warning when the hours do not fit. Give an exam topics with their own hours and the plan names the topic of each day. Add reviews with the day you first studied each one to show Review: entries in the plan and in the calendar. Dates can be plain text, like Dec 12 or in 3 weeks. Example prompt: \"Plan 3 weeks of study for my 4 exams, 90 minutes a day.\"",
   ),
   alias(
     "spaced_repetition_dates",

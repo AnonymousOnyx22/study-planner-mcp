@@ -46,6 +46,16 @@ function slug(text: string): string {
   return s || "event";
 }
 
+function ordinal(n: number): string {
+  const teen = n % 100 >= 11 && n % 100 <= 13;
+  const last = n % 10;
+  if (teen) return `${n}th`;
+  if (last === 1) return `${n}st`;
+  if (last === 2) return `${n}nd`;
+  if (last === 3) return `${n}rd`;
+  return `${n}th`;
+}
+
 export interface IcsOptions {
   /** Add an all day event on each exam day. Defaults to true. */
   includeExams?: boolean;
@@ -79,6 +89,19 @@ export function studyPlanIcs(plan: Plan, opts: IcsOptions = {}): string {
         date: day.date,
         base: `${fmt(day.date)}-${slug(item.name)}-study`,
         summary: `Study: ${item.name} ${item.hours}h`,
+        description: bits.join(" "),
+        busy: false,
+      });
+    }
+  }
+  if (plan.reviews && plan.reviews.length > 0) {
+    for (const r of plan.reviews) {
+      const bits = [`Review: ${r.topic}, the ${ordinal(r.number)} review.`];
+      if (r.exam) bits.push(`Exam on ${label(r.exam)}.`);
+      events.push({
+        date: r.date,
+        base: `${fmt(r.date)}-${slug(r.topic)}-review-${r.number}`,
+        summary: `Review: ${r.topic}`,
         description: bits.join(" "),
         busy: false,
       });

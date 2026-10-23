@@ -16,11 +16,11 @@
   "tools": [
     {
       "name": "make_study_plan",
-      "description": "Build a day by day study plan for one or more exams. Daily hours are shared across exams by urgency, study stops the day before each exam, and the answer warns when there is not enough time. Set hours_per_weekday when your weekdays and your weekend differ, and give an exam topics with their own hours to get the topic of each day as well. Dates can be plain text, like Dec 12 or in 3 weeks. Example prompt: \"Plan 3 weeks of study for my 4 exams, 90 minutes a day.\""
+      "description": "Build a day by day study plan for one or more exams. Daily hours are shared across exams by urgency, study stops the day before each exam, and the answer warns when there is not enough time. Set hours_per_weekday when your weekdays and your weekend differ, and give an exam topics with their own hours to get the topic of each day as well. Add reviews with the day you first studied each one to show Review: entries in the plan and in the calendar. Dates can be plain text, like Dec 12 or in 3 weeks. Example prompt: \"Plan 3 weeks of study for my 4 exams, 90 minutes a day.\""
     },
     {
       "name": "build_study_plan",
-      "description": "Build a day by day study plan for one or more exams. Give each exam date and the hours you have per day, or set different hours for each weekday with hours_per_weekday, and get dated study sessions split by urgency, with a warning when the hours do not fit. Give an exam topics with their own hours and the plan names the topic of each day. Dates can be plain text, like Dec 12 or in 3 weeks. Example prompt: \"Plan 3 weeks of study for my 4 exams, 90 minutes a day.\""
+      "description": "Build a day by day study plan for one or more exams. Give each exam date and the hours you have per day, or set different hours for each weekday with hours_per_weekday, and get dated study sessions split by urgency, with a warning when the hours do not fit. Give an exam topics with their own hours and the plan names the topic of each day. Add reviews with the day you first studied each one to show Review: entries in the plan and in the calendar. Dates can be plain text, like Dec 12 or in 3 weeks. Example prompt: \"Plan 3 weeks of study for my 4 exams, 90 minutes a day.\""
     },
     {
       "name": "spaced_repetition_dates",
@@ -52,7 +52,7 @@
     },
     {
       "name": "export_study_plan_ics",
-      "description": "Turn a study plan into an .ics calendar file to import into Google Calendar or Apple Calendar. It builds the same plan as build_study_plan, with the same hours_per_weekday if you set one, and answers with the whole file, so save the answer as plan.ics and open it. Every study session becomes an all day event that shows as free, with the topics of the session in its description when the exam has topics, and every exam becomes an all day event that shows as busy unless include_exams is false. Dates can be plain text, like Dec 12 or in 3 weeks. Example prompt: \"Export my plan for a networking exam on 2026-12-12, 6 hours, starting 2026-12-07, as an ICS file.\""
+      "description": "Turn a study plan into an .ics calendar file to import into Google Calendar or Apple Calendar. It builds the same plan as build_study_plan, with the same hours_per_weekday if you set one, and answers with the whole file, so save the answer as plan.ics and open it. Every study session becomes an all day event that shows as free, with the topics of the session in its description when the exam has topics, and every exam becomes an all day event that shows as busy unless include_exams is false. Add reviews with the day you first studied each one to add Review: all day events to the calendar. Dates can be plain text, like Dec 12 or in 3 weeks. Example prompt: \"Export my plan for a networking exam on 2026-12-12, 6 hours, starting 2026-12-07, as an ICS file.\""
     },
     {
       "name": "what_to_study_today",

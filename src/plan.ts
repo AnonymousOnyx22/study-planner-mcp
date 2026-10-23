@@ -249,6 +249,7 @@ export interface Plan {
   days: DayPlan[];
   short: PlanShort[];
   exams: PlanExam[];
+  reviews?: PlannedReview[];
 }
 
 export interface PlanDay {
@@ -279,6 +280,38 @@ export function spacedDates(first: Date, intervals: number[], examDate?: Date): 
     const date = addDays(first, n);
     return { date, day: n, skipped: examDate ? date.getTime() >= examDate.getTime() : false };
   });
+}
+
+/** A topic the caller is reviewing, with the day it was first studied. */
+export interface ReviewInput {
+  topic: string;
+  first_study_date?: string;
+  exam_date?: string;
+}
+
+/** One review of a topic, ready to show in a plan or a calendar file. */
+export interface PlannedReview {
+  topic: string;
+  date: Date;
+  /** Which review it is, counting the reviews that are not skipped. */
+  number: number;
+  /** The exam date, when the caller gave one. */
+  exam?: Date;
+}
+
+/**
+ * Work out the reviews for a list of topics, oldest first. Reviews on or after
+ * the exam are left out, the same as the other review tools do.
+ */
+export function plannedReviews(reviews: ReviewInput[], intervals: number[], defaultFirstStudy: Date): PlannedReview[] {
+  const out: PlannedReview[] = [];
+  for (const r of reviews) {
+    const first = r.first_study_date ? parseDateInput(r.first_study_date) : defaultFirstStudy;
+    const exam = r.exam_date ? parseDateInput(r.exam_date) : undefined;
+    const rows = spacedDates(first, intervals, exam).filter((row) => !row.skipped);
+    rows.forEach((row, i) => out.push({ topic: r.topic, date: row.date, number: i + 1, exam }));
+  }
+  return out.sort((a, b) => a.date.getTime() - b.date.getTime());
 }
 
 /** The next review to do, with the reviews that have already passed. */
