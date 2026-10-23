@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.4
 
 - This file now starts with the Unreleased block, so the newest work comes first and every released version follows in order.
 - The scratch test that only printed messages to the console is no longer in the test folder, so every test file there checks something.
