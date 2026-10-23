@@ -36,6 +36,6 @@ Install is one line:
 claude mcp add study-planner -- npx -y study-planner-mcp
 ```
 
-The README has the config for Claude Desktop, ChatGPT, Cursor and VS Code Copilot as well.
+The README has the config for Claude Desktop, Claude Code, Cursor and VS Code Copilot as well.
 
 It is free, open source, runs on your computer, needs no account, and stores nothing. If a plan comes out wrong for your dates, tell me and I will look at it.
