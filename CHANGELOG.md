@@ -2,10 +2,8 @@
 
 ## 0.1.5
 
-- Add review support to plans and calendar exports
-- Add a draft: Post the what_to_study_today and .ics demo weekly
-- Update the table of sibling MCP servers in the README
-- Add a draft: Post a sample exam week plan on r/GetStudying with a config
+- build_study_plan and export_study_plan_ics take an optional reviews list. Give each topic the day you first studied it and, if there is one, its exam date, and the spaced repetition reviews go into the plan and the calendar file next to the study sessions. intervals_days sets the days between reviews and defaults to 1, 3, 7, 14 and 30. Reviews on or after an exam are skipped.
+- The README now ends with a table of the other free student MCP servers, so you can find the one for your school's system.
 
 ## 0.1.4
 
