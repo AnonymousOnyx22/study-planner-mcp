@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.5
+
+- Add review support to plans and calendar exports
+- Add a draft: Post the what_to_study_today and .ics demo weekly
+- Update the table of sibling MCP servers in the README
+- Add a draft: Post a sample exam week plan on r/GetStudying with a config
+
 ## 0.1.4
 
 - This file now starts with the Unreleased block, so the newest work comes first and every released version follows in order.
