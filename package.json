@@ -21,7 +21,6 @@
     "build": "tsc && node -e \"require('fs').chmodSync('build/src/index.js', 0o755)\"",
     "test": "vitest run",
     "start": "node build/src/index.js",
-    "demo": "node build/src/demo.js",
     "prepublishOnly": "npm run build && npm test"
   },
   "keywords": [
