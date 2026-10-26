@@ -851,3 +851,13 @@ describe("README keywords and LMS comparison", () => {
     for (const name of named) expect(names.has(name) || params.has(name)).toBe(true);
   });
 });
+
+describe("version and description agreement", () => {
+  it("keeps the version the same in package.json, server.json and glama.json", () => {
+    const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+    const server = JSON.parse(readFileSync(new URL("../server.json", import.meta.url), "utf8"));
+    const glama = JSON.parse(readFileSync(new URL("../glama.json", import.meta.url), "utf8"));
+    expect(server.version).toBe(pkg.version);
+    expect(glama.version).toBe(pkg.version);
+  });
+});
