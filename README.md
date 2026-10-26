@@ -546,8 +546,7 @@ MIT
 You give the hours you can study on each day. The plan spreads work by urgency, so if time is tight it concentrates more near the exam. If there is not enough time, the plan gives a warning.
 
 ### How do I space out revision?
-Use make_spaced_repetition_schedule for a topic to get review dates at expanding intervals. You can also use 
-ext_review_dates for just the next one. Dates on or after the exam are marked to skip.
+Use make_spaced_repetition_schedule for a topic to get review dates at expanding intervals. You can also use next_review_dates for just the next one. Dates on or after the exam are marked to skip.
 
 ### Is there a study planner offline?
 Yes. This server runs on your computer with no account, no login and no internet needed. All date math runs locally.
