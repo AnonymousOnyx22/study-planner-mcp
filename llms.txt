@@ -270,13 +270,13 @@ Answer:
 
 ```text
 4 work sessions
-- 0-25 min, work (25 min)
-- 25-30 min, short break (5 min)
-- 30-55 min, work (25 min)
-- 55-60 min, short break (5 min)
-- 60-85 min, work (25 min)
-- 85-90 min, short break (5 min)
-- 90-105 min, work (15 min)
+- 09:00-09:25 work (25 min)
+- 09:25-09:30 short break (5 min)
+- 09:30-09:55 work (25 min)
+- 09:55-10:00 short break (5 min)
+- 10:00-10:25 work (25 min)
+- 10:25-10:30 short break (5 min)
+- 10:30-10:45 work (15 min)
 
 Total time with breaks is 105 minutes.
 ```

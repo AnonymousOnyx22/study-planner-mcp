@@ -2,6 +2,20 @@ import { z } from "zod";
 import { type ToolDef, bullets } from "./core/tools.js";
 import { studyPlanIcs } from "./ics.js";
 import { DAY_MS, fmt, label, parseDateInput, today } from "./dates.js";
+
+function parseTime(s: string): number {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(s.trim());
+  if (!m) throw new Error(`"${s}" is not a time. Use HH:MM, like 09:00.`);
+  const h = Number(m[1]);
+  const min = Number(m[2]);
+  if (h > 23 || min > 59) throw new Error(`"${s}" is not a real time of day.`);
+  return h * 60 + min;
+}
+function clock(mins: number): string {
+  const h = Math.floor(mins / 60) % 24;
+  const m = mins % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
 import { milestones, nextReview, planForDay, plannedReviews, pomodoro, spacedDates, studyPlan, weekdayHours, weekdayIndex } from "./plan.js";
 
 type Api = null;
@@ -336,18 +350,22 @@ const core: ToolDef<Api>[] = [
       work_minutes: numberField("work_minutes", 25, 0, undefined, true).default(25).describe("Work block length in minutes."),
       short_break_minutes: numberField("short_break_minutes", 5, 0, undefined, true).default(5).describe("Short break length in minutes."),
       long_break_minutes: numberField("long_break_minutes", 15, 0, undefined, true).default(15).describe("Long break length in minutes."),
-      sessions_before_long_break: numberField("sessions_before_long_break", 4, 0, undefined, true).default(4).describe("Work sessions before a long break."),
-    },
-    run: async (a) => {
-      const r = pomodoro(a.total_minutes, a.work_minutes, a.short_break_minutes, a.long_break_minutes, a.sessions_before_long_break);
-      let t = 0;
-      const lines = r.steps.map((s) => {
-        const from = t;
-        t += s.minutes;
-        return `${from}-${t} min, ${s.kind} (${s.minutes} min)`;
-      });
-      return `${r.sessions} work sessions\n${bullets(lines)}\n\nTotal time with breaks is ${t} minutes.`;
-    },
+       sessions_before_long_break: numberField("sessions_before_long_break", 4, 0, undefined, true).default(4).describe("Work sessions before a long break."),
+       start_date: dateField("start_date").optional().describe(`First day of the plan. ${DATE_HINT}`),
+       start_time: textField("start_time", "09:00").optional().describe("Clock time the first block starts, like 09:00."),
+     },
+     run: async (a) => {
+       const r = pomodoro(a.total_minutes, a.work_minutes, a.short_break_minutes, a.long_break_minutes, a.sessions_before_long_break);
+       const startMinutes = parseTime(a.start_time ?? "09:00");
+       let t = 0;
+       const lines = r.steps.map((s) => {
+         const from = startMinutes + t;
+         t += s.minutes;
+         const to = startMinutes + t;
+         return `${clock(from)}-${clock(to)} ${s.kind} (${s.minutes} min)`;
+       });
+       return `${r.sessions} work sessions\n${bullets(lines)}\n\nTotal time with breaks is ${t} minutes.`;
+     },
   },
   {
     name: "assignment_milestones",
