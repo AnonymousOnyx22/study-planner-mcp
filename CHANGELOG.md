@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.6
 
 - plan_pomodoro_sessions takes an optional start_time, like 09:00, and then lists each block with clock times, such as 09:00-09:25. Without it the blocks are listed as minutes from the start, as before.
 
