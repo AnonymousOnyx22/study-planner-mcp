@@ -344,7 +344,7 @@ const core: ToolDef<Api>[] = [
     name: "pomodoro_plan",
     title: "Pomodoro plan",
     description:
-      "Plan pomodoro sessions: a work and break schedule for a total amount of study time, with a long break after a set number of sessions. Example prompt: \"Plan 3 hours of studying as pomodoro blocks with breaks.\"",
+      "Plan pomodoro sessions: a work and break schedule for a total amount of study time, with a long break after a set number of sessions. Give start_time, like 09:00, to get clock times for each block. Example prompt: \"Plan 3 hours of studying as pomodoro blocks with breaks.\"",
     inputSchema: {
       total_minutes: numberField("total_minutes", 75, 0, 1440, true).describe("Total study time in minutes."),
       work_minutes: numberField("work_minutes", 25, 0, undefined, true).default(25).describe("Work block length in minutes."),
@@ -552,7 +552,7 @@ export const tools: ToolDef<Api>[] = [
     "pomodoro_plan",
     "plan_pomodoro_sessions",
     "Plan pomodoro sessions",
-    "Plan pomodoro sessions for a total amount of study time: work blocks separated by short breaks, with a long break after a set number of sessions. Example prompt: \"Plan 3 hours of studying as pomodoro blocks with breaks.\"",
+    "Plan pomodoro sessions for a total amount of study time: work blocks separated by short breaks, with a long break after a set number of sessions. Give start_time, like 09:00, to get clock times for each block. Example prompt: \"Plan 3 hours of studying as pomodoro blocks with breaks.\"",
   ),
   alias(
     "assignment_milestones",

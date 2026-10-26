@@ -36,11 +36,11 @@
     },
     {
       "name": "pomodoro_plan",
-      "description": "Plan pomodoro sessions: a work and break schedule for a total amount of study time, with a long break after a set number of sessions. Example prompt: \"Plan 3 hours of studying as pomodoro blocks with breaks.\""
+      "description": "Plan pomodoro sessions: a work and break schedule for a total amount of study time, with a long break after a set number of sessions. Give start_time, like 09:00, to get clock times for each block. Example prompt: \"Plan 3 hours of studying as pomodoro blocks with breaks.\""
     },
     {
       "name": "plan_pomodoro_sessions",
-      "description": "Plan pomodoro sessions for a total amount of study time: work blocks separated by short breaks, with a long break after a set number of sessions. Example prompt: \"Plan 3 hours of studying as pomodoro blocks with breaks.\""
+      "description": "Plan pomodoro sessions for a total amount of study time: work blocks separated by short breaks, with a long break after a set number of sessions. Give start_time, like 09:00, to get clock times for each block. Example prompt: \"Plan 3 hours of studying as pomodoro blocks with breaks.\""
     },
     {
       "name": "assignment_milestones",
