@@ -173,6 +173,7 @@ People search for a study planner with words like these, so here they are in one
 
 - study planner mcp
 - study planner
+- study planner offline
 - study-planner-mcp
 - study plan mcp
 - revision timetable
@@ -538,3 +539,21 @@ All free, open source and read only where they touch your accounts. Browse the f
 ## License
 
 MIT
+
+## FAQ
+
+### How many hours a day before my exam?
+You give the hours you can study on each day. The plan spreads work by urgency, so if time is tight it concentrates more near the exam. If there is not enough time, the plan gives a warning.
+
+### How do I space out revision?
+Use make_spaced_repetition_schedule for a topic to get review dates at expanding intervals. You can also use 
+ext_review_dates for just the next one. Dates on or after the exam are marked to skip.
+
+### Is there a study planner offline?
+Yes. This server runs on your computer with no account, no login and no internet needed. All date math runs locally.
+
+### What should I study today?
+Use what_to_study_today with your exam dates and hours or with a plan. It lists sessions for today and any spaced repetition reviews due or late.
+
+### Can I add the plan to my calendar?
+Yes. Use export_study_plan_ics to get an .ics file you can import into Google Calendar or Apple Calendar.
