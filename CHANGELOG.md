@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- plan_pomodoro_sessions takes an optional start_time, like 09:00, and then lists each block with clock times, such as 09:00-09:25. Without it the blocks are listed as minutes from the start, as before.
+
 ## 0.1.5
 
 - build_study_plan and export_study_plan_ics take an optional reviews list. Give each topic the day you first studied it and, if there is one, its exam date, and the spaced repetition reviews go into the plan and the calendar file next to the study sessions. intervals_days sets the days between reviews and defaults to 1, 3, 7, 14 and 30. Reviews on or after an exam are skipped.

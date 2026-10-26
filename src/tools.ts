@@ -351,18 +351,18 @@ const core: ToolDef<Api>[] = [
       short_break_minutes: numberField("short_break_minutes", 5, 0, undefined, true).default(5).describe("Short break length in minutes."),
       long_break_minutes: numberField("long_break_minutes", 15, 0, undefined, true).default(15).describe("Long break length in minutes."),
        sessions_before_long_break: numberField("sessions_before_long_break", 4, 0, undefined, true).default(4).describe("Work sessions before a long break."),
-       start_date: dateField("start_date").optional().describe(`First day of the plan. ${DATE_HINT}`),
-       start_time: textField("start_time", "09:00").optional().describe("Clock time the first block starts, like 09:00."),
+       start_time: textField("start_time", "09:00").optional().describe("Clock time the first block starts, like 09:00. Leave it out to list the blocks as minutes from the start."),
      },
      run: async (a) => {
        const r = pomodoro(a.total_minutes, a.work_minutes, a.short_break_minutes, a.long_break_minutes, a.sessions_before_long_break);
-       const startMinutes = parseTime(a.start_time ?? "09:00");
+       // with no start_time the blocks keep their old wording, minutes from the start; a start_time turns them into clock times
+       const startMinutes = a.start_time ? parseTime(a.start_time) : null;
        let t = 0;
        const lines = r.steps.map((s) => {
-         const from = startMinutes + t;
+         const from = t;
          t += s.minutes;
-         const to = startMinutes + t;
-         return `${clock(from)}-${clock(to)} ${s.kind} (${s.minutes} min)`;
+         const to = t;
+         return startMinutes === null ? `${from}-${to} min, ${s.kind} (${s.minutes} min)` : `${clock(startMinutes + from)}-${clock(startMinutes + to)} ${s.kind} (${s.minutes} min)`;
        });
        return `${r.sessions} work sessions\n${bullets(lines)}\n\nTotal time with breaks is ${t} minutes.`;
      },
