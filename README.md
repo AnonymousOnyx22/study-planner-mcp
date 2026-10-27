@@ -11,6 +11,7 @@ Ask it things like:
 - "My networking exam covers routing, switching and security. Split the study hours over those topics and tell me what to study today."
 - "When should I review what I learned today so I remember it for my exam on Nov 30?"
 - "What should I study today? My networking exam is on Dec 12 and I studied routing last Friday."
+- "Am I on track for my exam on Dec 12 if I can study 2 hours a day?"
 - "Plan 3 hours of studying as pomodoro blocks with breaks."
 - "Break my 6 hour essay due Friday into milestones."
 - "Give me this plan as an .ics file so I can import it into Google Calendar."
@@ -139,6 +140,7 @@ After any of these, try one of the questions at the top of this page.
 | `next_review_dates` | The date of the next review for one topic, so you get a single date instead of the whole schedule |
 | `export_study_plan_ics` | The same plan as an `.ics` calendar file, with one all day event per study session and one per exam, ready to open or import into Google Calendar or Apple Calendar |
 | `what_to_study_today` | What to study on one day: the study sessions from your plan for that day, the topic of each session when the exams have topics, plus the spaced repetition reviews that are due that day or are late |
+| `exam_countdown` | The days left, the study days left, the hours each exam still needs, the hours to put in on each study day and a plain On track or Behind verdict |
 
 The original names `make_study_plan`, `spaced_repetition_dates`, `pomodoro_plan` and `assignment_milestones` do the same four jobs with the same parameters, so existing configs and saved prompts keep working.
 
@@ -184,6 +186,7 @@ People search for a study planner with words like these, so here they are in one
 - exam timetable
 - exam planner
 - exam prep
+- exam countdown
 - exam study plan
 - study schedule
 - study timetable
@@ -487,6 +490,34 @@ Next reviews
 
 Next exam: Networking on 2026-12-12 sat, 12 days left.
 ```
+
+## Exam countdown
+
+`exam_countdown` answers whether you are on track for an exam. It gives the days left, the number of study days left after days off and weekdays with 0 hours, the hours the exam still needs, the hours to put in on each study day and a plain verdict. It uses the same `hours_per_day`, `hours_per_weekday` and `days_off` as the plan tools, so the verdict matches the plan they build. Pass `from_date` to count from a fixed day.
+
+Tool call:
+
+```json
+{
+  "exams": [{ "name": "Networking", "date": "2026-12-12", "hours_needed": 20 }],
+  "from_date": "2026-11-30",
+  "hours_per_day": 2,
+  "days_off": ["sun"]
+}
+```
+
+The answer:
+
+```text
+Exam countdown from 2026-11-30 mon
+
+Networking, exam 2026-12-12 sat
+- 12 days left, 11 study days left
+- 20h still needed, 1.8h per study day
+- On track: 20h fits in 11 study days at your hours.
+```
+
+If the hours do not fit, the last line says Behind by the hours short, so you know how much time to add or how many hours to lower.
 
 ## Next review date
 

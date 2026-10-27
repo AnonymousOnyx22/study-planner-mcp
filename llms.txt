@@ -1,6 +1,6 @@
 # study-planner-mcp
 
-> Study planner MCP server. Give it your exam dates and the hours you study, the same on every day or different for each weekday, and it builds an exam schedule, a study timetable with spaced repetition review dates, pomodoro blocks and assignment milestones, and it hands the plan back as an .ics file to import into Google Calendar or Apple Calendar. Give an exam topics with their own hours and the plan says which topic to study on each day. It also answers what to study today, with the study sessions for that day, the topic of each one and the reviews that are due. Runs offline, no account. Free and open source, works with Claude, ChatGPT, Cursor, Copilot and other MCP clients.
+> Study planner MCP server. Give it your exam dates and the hours you study, the same on every day or different for each weekday, and it builds an exam schedule, a study timetable with spaced repetition review dates, pomodoro blocks and assignment milestones, and it hands the plan back as an .ics file to import into Google Calendar or Apple Calendar. Give an exam topics with their own hours and the plan says which topic to study on each day. It also answers what to study today, with the study sessions for that day, the topic of each one and the reviews that are due. Ask whether you are on track for an exam and it counts the days and study days left. Runs offline, no account. Free and open source, works with Claude, ChatGPT, Cursor, Copilot and other MCP clients.
 
 ## Setup
 - Run with npx -y study-planner-mcp
@@ -10,6 +10,7 @@
 - next_review_dates counts from the day you first studied the topic and leaves out any review on or after the exam. Give from_date to say which day to count from, so the answer is repeatable.
 - Study hours go in hours_per_day for every study day, and in hours_per_weekday when a weekday has its own hours, like [{day: "mon", hours: 2}, {day: "sat", hours: 6}]. Weekdays you leave out of that list use hours_per_day, a weekday with 0 hours is a day off, and days in days_off are always left out.
 - An exam can carry topics with their own hours, like exams: [{name: "Networking", date: "2026-12-10", topics: [{name: "Routing", hours_needed: 6}, {name: "Switching", hours_needed: 4}]}]. The plan then names the topic of every study day, and what_to_study_today names the topic of one day. Leave hours_needed off a topic and the hours of the exam are split evenly over the topics.
+- exam_countdown counts from from_date, or today, and uses the same hours_per_day, hours_per_weekday and days_off as the plan tools, so its On track or Behind verdict matches the plan.
 - Config file per client: Claude Desktop uses mcpServers, Cursor uses mcpServers in .cursor/mcp.json or ~/.cursor/mcp.json, VS Code Copilot uses servers in .vscode/mcp.json, and the ChatGPT desktop app takes the same mcpServers JSON as a connector.
 
 ## Tools
@@ -20,6 +21,7 @@
 - list_assignment_milestones: List dated milestones that split a big assignment from a start date to the due date, with default steps for research, outline, draft, revise and proofread. Dates can be plain text, like Dec 12 or in 3 weeks. Example prompt: "Break my 6 hour essay due 2026-11-20 into milestones."
 - export_study_plan_ics: Turn a study plan into an .ics calendar file to import into Google Calendar or Apple Calendar. It builds the same plan as build_study_plan, with the same hours_per_weekday if you set one, and answers with the whole file, so save the answer as plan.ics and open it. Every study session becomes an all day event that shows as free, with the topics of the session in its description when the exam has topics, and every exam becomes an all day event that shows as busy unless include_exams is false. Add reviews with the day you first studied each one to add Review: all day events to the calendar. Dates can be plain text, like Dec 12 or in 3 weeks. Example prompt: "Export my plan for a networking exam on 2026-12-12, 6 hours, starting 2026-12-07, as an ICS file."
 - what_to_study_today: Answer what to study on one day in a single call: the study sessions your plan gives for that day, with the topic of each session when the exams have topics, plus the spaced repetition reviews that are due that day or are late. Give the same exams and hours you use in build_study_plan, including hours_per_weekday, and the topics you are reviewing with the day you first studied each one. Leave date out and it uses today's date. Dates can be plain text, like Dec 12 or in 3 weeks. Example prompt: "What should I study today? I have a networking exam on 2026-12-12 and I studied routing on 2026-11-27."
+- exam_countdown: Check whether you are on track for each exam. For every exam it gives the days left, the study days left, the hours still to study, the hours to put in on each study day and a plain On track or Behind verdict, using the same hours per day, hours per weekday and days off as the plan tools. Give from_date to count from a fixed day. Dates can be plain text, like Dec 12 or in 3 weeks. Example prompt: "Am I on track for my exam on 2026-12-12 if I can study 2 hours a day?"
 - Aliases: make_study_plan, spaced_repetition_dates, pomodoro_plan and assignment_milestones are older names for the tools above. They take the same arguments and give the same answers, so use the names above when you can.
 - Worked examples: the section below has a prompt, a tool call and the answer for every tool.
 
@@ -340,6 +342,31 @@ Next reviews
 - Routing on 2026-12-04 fri, 3rd review
 
 Next exam: Networking on 2026-12-12 sat, 12 days left.
+```
+
+### An exam countdown
+
+Prompt: "Am I on track for my exam on 2026-12-05 if I can study 2 hours a day from 2026-11-30?"
+
+Tool call: exam_countdown
+
+```json
+{
+  "exams": [{ "name": "Networking", "date": "2026-12-05", "hours_needed": 20 }],
+  "hours_per_day": 2,
+  "from_date": "2026-11-30"
+}
+```
+
+Answer:
+
+```text
+Exam countdown from 2026-11-30 mon
+
+Networking, exam 2026-12-05 sat
+- 5 days left, 5 study days left
+- 20h still needed, 4h per study day
+- Behind by 10h: your study days give 10h before the exam.
 ```
 
 ### A calendar file

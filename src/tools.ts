@@ -16,7 +16,7 @@ function clock(mins: number): string {
   const m = mins % 60;
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
-import { milestones, nextReview, planForDay, plannedReviews, pomodoro, spacedDates, studyPlan, weekdayHours, weekdayIndex } from "./plan.js";
+import { examCountdown, milestones, nextReview, planForDay, plannedReviews, pomodoro, spacedDates, studyPlan, weekdayHours, weekdayIndex } from "./plan.js";
 
 type Api = null;
 
@@ -524,6 +524,39 @@ const core: ToolDef<Api>[] = [
         out.push("", `Next exam: ${nextExam.name} on ${label(nextExam.date)}${left}.`);
       }
       return out.join("\n");
+    },
+  },
+  {
+    name: "exam_countdown",
+    title: "Exam countdown",
+    description:
+      "Check whether you are on track for each exam. For every exam it gives the days left, the study days left, the hours still to study, the hours to put in on each study day and a plain On track or Behind verdict, using the same hours per day, hours per weekday and days off as the plan tools. Give from_date to count from a fixed day. Dates can be plain text, like Dec 12 or in 3 weeks. Example prompt: \"Am I on track for my exam on 2026-12-12 if I can study 2 hours a day?\"",
+    inputSchema: {
+      exams: examList(true)
+        .min(1, { error: `exams must have at least 1 exam; ${EXAM_HINT}` })
+        .describe("Exams with name, date, optional hours needed and optional topics with their own hours."),
+      hours_per_day: hoursPerDay(),
+      hours_per_weekday: hoursPerWeekday(),
+      days_off: daysOff(),
+      from_date: dateField("from_date").optional().describe(`The day to count from. Defaults to today. ${DATE_HINT}`),
+    },
+    run: async (a) => {
+      const from = a.from_date ? parseDateInput(a.from_date) : today();
+      const rows = examCountdown(a.exams, from, a.hours_per_day, a.days_off.map(weekdayIndex), weekdayHours(a.hours_per_weekday));
+      const blocks = rows.map((r) => {
+        const lines = [`${r.days_left} ${r.days_left === 1 ? "day" : "days"} left, ${r.study_days_left} ${r.study_days_left === 1 ? "study day" : "study days"} left`];
+        if (r.study_days_left > 0) lines.push(`${r.hours_needed}h still needed, ${r.hours_per_study_day}h per study day`);
+        else lines.push(`${r.hours_needed}h still needed, and no study days left`);
+        const verdict = r.passed
+          ? "Behind: the exam date has passed."
+          : r.on_track
+            ? `On track: ${r.hours_needed}h fits in ${r.study_days_left} study days at your hours.`
+            : `Behind by ${r.hours_short}h: your study days give ${Math.round((r.hours_needed - r.hours_short) * 10) / 10}h before the exam.`;
+        lines.push(verdict);
+        const topics = r.topics?.map((t) => `${t.name} ${t.need}h needed${t.hours_short > 0 ? `, ${t.hours_short}h short` : ""}`).join(", ");
+        return `${r.name}, exam ${label(r.date)}\n${bullets(lines)}${topics ? `\n  - ${topics}` : ""}`;
+      });
+      return `Exam countdown from ${label(from)}\n\n${blocks.join("\n\n")}`;
     },
   },
 ];

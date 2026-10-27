@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createServer } from "../src/server.js";
-import { parseDate, fmt, studyPlan, pomodoro, milestones, spacedDates, nextReview, planForDay, weekdayHours, today, addDays } from "../src/plan.js";
+import { parseDate, fmt, studyPlan, pomodoro, milestones, spacedDates, nextReview, planForDay, examCountdown, weekdayHours, today, addDays } from "../src/plan.js";
 import { studyPlanIcs } from "../src/ics.js";
 
 let client: Client;
@@ -143,6 +143,31 @@ describe("plan math", () => {
   });
 });
 
+describe("exam countdown", () => {
+  it("counts days, study days and the hours on track", () => {
+    const rows = examCountdown([{ name: "Net", date: "2026-12-12", hours_needed: 20 }], parseDate("2026-11-30"), 2, [0]);
+    expect(rows[0].days_left).toBe(12);
+    expect(rows[0].study_days_left).toBe(11);
+    expect(rows[0].hours_needed).toBe(20);
+    expect(rows[0].hours_per_study_day).toBe(1.8);
+    expect(rows[0].hours_short).toBe(0);
+    expect(rows[0].on_track).toBe(true);
+  });
+  it("says how many hours short an exam is", () => {
+    const rows = examCountdown([{ name: "Net", date: "2026-12-05", hours_needed: 20 }], parseDate("2026-11-30"), 2, []);
+    expect(rows[0].days_left).toBe(5);
+    expect(rows[0].study_days_left).toBe(5);
+    expect(rows[0].hours_short).toBe(10);
+    expect(rows[0].on_track).toBe(false);
+  });
+  it("counts the hours of the topics and the hours each topic is short", () => {
+    const rows = examCountdown([{ name: "Net", date: "2026-12-10", topics: [{ name: "Routing", hours_needed: 6 }, { name: "Security", hours_needed: 4 }] }], parseDate("2026-12-07"), 4, []);
+    expect(rows[0].hours_needed).toBe(10);
+    expect(rows[0].topics).toEqual([{ name: "Routing", need: 6, hours_short: 0 }, { name: "Security", need: 4, hours_short: 0 }]);
+    expect(rows[0].on_track).toBe(true);
+  });
+});
+
 describe("topics inside an exam", () => {
   it("takes the hours of the exam from its topics", () => {
     const plan = studyPlan([{ name: "Net", date: "2026-12-12", topics: [{ name: "Routing", hours_needed: 6 }, { name: "Security", hours_needed: 4 }] }], parseDate("2026-12-07"), 2, [0]);
@@ -233,11 +258,12 @@ describe("calendar file", () => {
 });
 
 describe("MCP tools", () => {
-  it("lists eleven read only tools", async () => {
+  it("lists twelve read only tools", async () => {
     const tools = (await client.listTools()).tools;
     expect(tools.map((t) => t.name).sort()).toEqual([
       "assignment_milestones",
       "build_study_plan",
+      "exam_countdown",
       "export_study_plan_ics",
       "list_assignment_milestones",
       "make_spaced_repetition_schedule",
@@ -484,6 +510,7 @@ describe("MCP tools", () => {
       "list_assignment_milestones",
       "export_study_plan_ics",
       "what_to_study_today",
+      "exam_countdown",
     ];
     const older = ["make_study_plan", "spaced_repetition_dates", "pomodoro_plan", "assignment_milestones"];
     const lines = llms.split("\n");
@@ -674,6 +701,81 @@ describe("what to study today", () => {
   });
 });
 
+describe("exam countdown tool", () => {
+  it("says an exam is on track", async () => {
+    const r = await call("exam_countdown", {
+      exams: [{ name: "Networking", date: "2026-12-12", hours_needed: 20 }],
+      from_date: "2026-11-30",
+      hours_per_day: 2,
+      days_off: ["sun"],
+    });
+    expect(r.isError).toBe(false);
+    expect(r.text).toContain("Exam countdown from 2026-11-30 mon");
+    expect(r.text).toContain("Networking, exam 2026-12-12 sat");
+    expect(r.text).toContain("12 days left, 11 study days left");
+    expect(r.text).toContain("20h still needed, 1.8h per study day");
+    expect(r.text).toContain("On track: 20h fits in 11 study days at your hours.");
+  });
+
+  it("says an exam is behind and by how many hours", async () => {
+    const r = await call("exam_countdown", {
+      exams: [{ name: "Networking", date: "2026-12-05", hours_needed: 20 }],
+      from_date: "2026-11-30",
+      hours_per_day: 2,
+    });
+    expect(r.isError).toBe(false);
+    expect(r.text).toContain("5 days left, 5 study days left");
+    expect(r.text).toContain("20h still needed, 4h per study day");
+    expect(r.text).toContain("Behind by 10h: your study days give 10h before the exam.");
+  });
+
+  it("uses the hours of each weekday and leaves out the days off", async () => {
+    const r = await call("exam_countdown", {
+      exams: [{ name: "Networking", date: "2026-12-12", hours_needed: 20 }],
+      from_date: "2026-11-30",
+      hours_per_day: 3,
+      hours_per_weekday: WEEKDAY_HOURS,
+    });
+    expect(r.isError).toBe(false);
+    expect(r.text).toContain("12 days left, 12 study days left");
+    expect(r.text).toContain("20h still needed, 1.7h per study day");
+    expect(r.text).toContain("On track");
+  });
+
+  it("counts the topic hours and names a topic that is short", async () => {
+    const r = await call("exam_countdown", {
+      exams: [{ name: "Networking", date: "2026-12-10", topics: [{ name: "Routing", hours_needed: 6 }, { name: "Security", hours_needed: 4 }] }],
+      from_date: "2026-12-07",
+      hours_per_day: 2,
+    });
+    expect(r.isError).toBe(false);
+    expect(r.text).toContain("10h still needed");
+    expect(r.text).toContain("- Routing 6h needed, 2.5h short, Security 4h needed, 1.5h short");
+    expect(r.text).toContain("Behind by 4h");
+  });
+
+  it("takes a plain date for the day it counts from", async () => {
+    const r = await call("exam_countdown", {
+      exams: [{ name: "Networking", date: "2026-12-12", hours_needed: 6 }],
+      from_date: "today",
+      hours_per_day: 2,
+    });
+    expect(r.isError).toBe(false);
+    expect(r.text).toContain(`Exam countdown from ${fmt(today())}`);
+  });
+
+  it("shows a real countdown in the README", async () => {
+    const section = readmeSection("Exam countdown");
+    const json = /Tool call:\n\n```json\n([\s\S]*?)```/.exec(section);
+    const answer = /The answer:\n\n```text\n([\s\S]*?)```/.exec(section);
+    expect(json?.[1]).toBeTruthy();
+    expect(answer?.[1]).toBeTruthy();
+    const r = await call("exam_countdown", JSON.parse(json![1]));
+    expect(r.isError).toBe(false);
+    expect(r.text).toBe(answer![1].trimEnd());
+  });
+});
+
 describe("llms.txt worked examples", () => {
   const llms = readFileSync(new URL("../llms.txt", import.meta.url), "utf8");
   const section = llms.split("## Worked examples")[1]?.split("\n## ")[0] ?? "";
@@ -693,6 +795,7 @@ describe("llms.txt worked examples", () => {
       "list_assignment_milestones",
       "export_study_plan_ics",
       "what_to_study_today",
+      "exam_countdown",
     ]) {
       expect(named.has(name)).toBe(true);
     }

@@ -275,6 +275,69 @@ export function planForDay(exams: ExamInput[], startDate: Date, target: Date, ho
   };
 }
 
+/** How ready one exam is, counted from a day. */
+export interface ExamCountdown {
+  name: string;
+  date: Date;
+  /** Days from the day you count from to the exam. The exam day itself is not counted. */
+  days_left: number;
+  /** Days before the exam you can study on, with days off and empty weekdays left out. */
+  study_days_left: number;
+  /** Hours the exam still needs. */
+  hours_needed: number;
+  /** Hours to put in on each study day to finish in time. */
+  hours_per_study_day: number;
+  /** Hours the plan cannot fit before the exam. */
+  hours_short: number;
+  on_track: boolean;
+  /** True when the exam date is on or before the day you count from. */
+  passed: boolean;
+  /** The topics of the exam, with the hours each one is short. */
+  topics?: { name: string; need: number; hours_short: number }[];
+}
+
+/**
+ * Count the days and hours left for each exam, and say whether the study time fits.
+ * Study days leave out days off and weekdays with 0 hours, and the exam day itself.
+ */
+export function examCountdown(exams: ExamInput[], from: Date, hoursPerDay: number, daysOff: number[], weekday?: WeekdayHours): ExamCountdown[] {
+  const rows = exams.map((e) => {
+    const t = topicPlan(e);
+    return { exam: e, date: parseDateInput(e.date), need: t ? t.need : e.hours_needed ?? 10, topics: t?.topics };
+  });
+  const ahead = rows.filter((r) => r.date.getTime() > from.getTime());
+  const plan = ahead.length ? studyPlan(ahead.map((r) => r.exam), from, hoursPerDay, daysOff, weekday) : undefined;
+  return rows.map((r) => {
+    let studyDays = 0;
+    for (let d = from; d.getTime() < r.date.getTime(); d = addDays(d, 1)) {
+      if (daysOff.includes(d.getUTCDay())) continue;
+      const dayHours = weekday?.[d.getUTCDay()] ?? hoursPerDay;
+      if (dayHours > 0) studyDays++;
+    }
+    const passed = r.date.getTime() <= from.getTime();
+    const short = plan?.short.find((s) => s.name === r.exam.name);
+    const hoursShort = short ? short.hours : passed ? r.need : 0;
+    const daysLeft = Math.max(0, Math.round((r.date.getTime() - from.getTime()) / DAY_MS));
+    const perDay = studyDays > 0 ? Math.round((r.need / studyDays) * 10) / 10 : r.need;
+    const topics = r.topics?.map((t) => {
+      const st = short?.topics?.find((x) => x.name === t.name);
+      return { name: t.name, need: t.need, hours_short: st ? st.hours : passed ? t.need : 0 };
+    });
+    return {
+      name: r.exam.name,
+      date: r.date,
+      days_left: daysLeft,
+      study_days_left: studyDays,
+      hours_needed: r.need,
+      hours_per_study_day: perDay,
+      hours_short: hoursShort,
+      on_track: !passed && hoursShort <= 0.001,
+      passed,
+      ...(topics?.length ? { topics } : {}),
+    };
+  });
+}
+
 export function spacedDates(first: Date, intervals: number[], examDate?: Date): { date: Date; day: number; skipped: boolean }[] {
   return intervals.map((n) => {
     const date = addDays(first, n);

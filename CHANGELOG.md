@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added `exam_countdown`, which gives the days left, the study days left, the hours each exam still needs, the hours to put in on each study day and a plain On track or Behind verdict. It uses the same hours per day, hours per weekday and days off as the plan tools.
 - `npm run demo` prints a sample plan for two exams, the what_to_study_today answer and the first lines of the .ics file, so you can see real output without installing the server.
 
 ## 0.1.6

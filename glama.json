@@ -57,6 +57,10 @@
     {
       "name": "what_to_study_today",
       "description": "Answer what to study on one day in a single call: the study sessions your plan gives for that day, with the topic of each session when the exams have topics, plus the spaced repetition reviews that are due that day or are late. Give the same exams and hours you use in build_study_plan, including hours_per_weekday, and the topics you are reviewing with the day you first studied each one. Leave date out and it uses today's date. Dates can be plain text, like Dec 12 or in 3 weeks. Example prompt: \"What should I study today? I have a networking exam on 2026-12-12 and I studied routing on 2026-11-27.\""
+    },
+    {
+      "name": "exam_countdown",
+      "description": "Check whether you are on track for each exam. For every exam it gives the days left, the study days left, the hours still to study, the hours to put in on each study day and a plain On track or Behind verdict, using the same hours per day, hours per weekday and days off as the plan tools. Give from_date to count from a fixed day. Dates can be plain text, like Dec 12 or in 3 weeks. Example prompt: \"Am I on track for my exam on 2026-12-12 if I can study 2 hours a day?\""
     }
   ]
 }
