@@ -570,6 +570,30 @@ describe("MCP tools", () => {
       expect(listed?.description).toBe(t.description);
     }
   });
+  it("lists exactly the registered tools in the README and llms.txt tool tables", async () => {
+    const tools = (await client.listTools()).tools;
+    const registered = new Set(tools.map((t) => t.name));
+    const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
+    const llms = readFileSync(new URL("../llms.txt", import.meta.url), "utf8");
+    const readmeTools = readme.split("## Tools")[1]?.split("\n## ")[0] ?? "";
+    const llmsTools = llms.split("## Tools")[1]?.split("\n## ")[0] ?? "";
+    const readmeNames = [...readmeTools.matchAll(/^\| `(\S+)` \|/gm)].map((m) => m[1]);
+    const llmsNames = llmsTools
+      .split("\n")
+      .filter((l) => /^- [a-z_]+: /.test(l) && !l.startsWith("- Aliases:"))
+      .map((l) => l.slice(2).split(":")[0].trim());
+    expect(readmeNames.length).toBeGreaterThan(0);
+    expect(llmsNames.length).toBeGreaterThan(0);
+    expect(new Set(readmeNames)).toEqual(new Set(llmsNames));
+    for (const name of readmeNames) expect(registered.has(name)).toBe(true);
+    const listed = new Set(readmeNames);
+    const aliases = [...registered].filter((n) => !listed.has(n));
+    expect(readmeNames.length + aliases.length).toBe(registered.size);
+    for (const alias of aliases) {
+      expect(readme).toContain(alias);
+      expect(llms).toContain(alias);
+    }
+  });
   it("keeps the server.json description short enough for the registry", () => {
     const server = JSON.parse(readFileSync(new URL("../server.json", import.meta.url), "utf8"));
     expect(server.description.length).toBeLessThanOrEqual(100);
