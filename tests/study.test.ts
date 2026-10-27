@@ -335,6 +335,16 @@ describe("MCP tools", () => {
     expect(r.text).toContain("Everything fits.");
     expect(r.text).toContain("2026-12-07 mon");
   });
+  it("starts the plan with a one line verdict", async () => {
+    const r = await call("make_study_plan", { exams: [{ name: "Networking", date: "2026-12-12", hours_needed: 6 }], start_date: "2026-12-07", hours_per_day: 2, days_off: ["sun"] });
+    expect(r.text.startsWith("Everything fits: 1 exam, 3 study days, 6h\n")).toBe(true);
+    expect(r.text).toContain("Everything fits.");
+  });
+  it("says the hours do not fit in the opening line", async () => {
+    const r = await call("make_study_plan", { exams: [{ name: "Networking", date: "2026-12-05", hours_needed: 20 }], hours_per_day: 3, hours_per_weekday: [{ day: "mon", hours: 2 }, { day: "tue", hours: 2 }], start_date: "2026-12-01" });
+    expect(r.text.startsWith("Not enough time: 1 exam, 4 study days, 11h\n")).toBe(true);
+    expect(r.text).toContain("Networking is 9h short");
+  });
   it("reschedules the hours left after missed days", async () => {
     const r = await call("reschedule_missed_days", {
       exams: [{ name: "Networking", date: "2026-12-12", hours_needed: 10, hours_done: 4 }],

@@ -299,7 +299,11 @@ const core: ToolDef<Api>[] = [
         if (!e.topics || e.topics.length === 0) return head;
         return [head, ...e.topics.map((t) => `  - ${t.name} ${t.need}h planned`)].join("\n");
       });
-      let out = `Exams\n${bullets(exams)}\n\nPlan from ${fmt(start)}\n${bullets(lines)}`;
+      const total = plan.days.reduce((s, d) => s + d.items.reduce((x, i) => x + i.hours, 0), 0);
+      const fits = plan.short.length === 0;
+      const verdict = fits ? "Everything fits" : "Not enough time";
+      const head = `${verdict}: ${plan.exams.length} exam${plan.exams.length === 1 ? "" : "s"}, ${plan.days.length} study day${plan.days.length === 1 ? "" : "s"}, ${total}h`;
+      let out = `${head}\n\nExams\n${bullets(exams)}\n\nPlan from ${fmt(start)}\n${bullets(lines)}`;
       if (reviewLines.length) {
         out += `\n\nReviews\n${bullets(reviewLines)}`;
       }

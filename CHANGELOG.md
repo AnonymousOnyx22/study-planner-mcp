@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `make_study_plan` and `build_study_plan` start with a one line verdict, like `Everything fits: 2 exams, 12 study days, 36h`, so the answer comes before the full list of exams and study days.
 - Added `reschedule_missed_days`, which rebuilds a plan after days you missed. Give each exam the hours you already did with `hours_done` and it takes them off the exam, then spreads the hours left from `start_date` with the same hours per day, hours per weekday and days off as the plan tools. An exam with topics takes the done hours off its topics in proportion to their hours.
 - Added `exam_countdown`, which gives the days left, the study days left, the hours each exam still needs, the hours to put in on each study day and a plain On track or Behind verdict. It uses the same hours per day, hours per weekday and days off as the plan tools.
 - `npm run demo` prints a sample plan for two exams, the what_to_study_today answer and the first lines of the .ics file, so you can see real output without installing the server.

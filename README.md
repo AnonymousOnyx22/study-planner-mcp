@@ -258,6 +258,8 @@ Tool call:
 The answer:
 
 ```text
+Everything fits: 1 exam, 3 study days, 6h
+
 Exams
 - Networking on 2026-12-12 sat, 6h planned
 
@@ -297,6 +299,8 @@ Tool call:
 The answer:
 
 ```text
+Everything fits: 1 exam, 7 study days, 20h
+
 Exams
 - Networking on 2026-12-12 sat, 20h planned
 
@@ -341,6 +345,8 @@ Tool call:
 The answer:
 
 ```text
+Everything fits: 1 exam, 3 study days, 12h
+
 Exams
 - Networking on 2026-12-10 thu, 12h planned
   - Routing 6h planned
@@ -414,6 +420,8 @@ Tool call:
 The answer:
 
 ```text
+Everything fits: 2 exams, 12 study days, 36h
+
 Exams
 - Networking on 2026-12-12 sat, 20h planned
 - Scripting on 2026-12-15 tue, 16h planned
