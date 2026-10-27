@@ -148,6 +148,98 @@ export interface DayPlan {
   items: { name: string; hours: number; topics?: { name: string; hours: number }[] }[];
 }
 
+/** An exam that may already have some study hours done before the repaired plan starts. */
+export interface MissedDayExamInput extends ExamInput {
+  /** Hours already studied for this exam. Half hour steps, like 3 or 1.5. */
+  hours_done?: number;
+}
+
+/** One exam of a repaired plan, with the hours done and the hours left. */
+export interface RescheduledExam {
+  name: string;
+  date: Date;
+  /** The hours the exam needs in total. */
+  need: number;
+  /** The hours already studied. */
+  hours_done: number;
+  /** The hours still to study. */
+  hours_left: number;
+  /** The topics of the exam, when the exam has any. */
+  topics?: { name: string; need: number; hours_done: number; hours_left: number }[];
+}
+
+/** A study plan rebuilt around the hours already done. */
+export interface RescheduledPlan {
+  days: DayPlan[];
+  short: PlanShort[];
+  exams: RescheduledExam[];
+  /** The hours already studied across every exam. */
+  hours_done: number;
+  /** The hours still to study across every exam. */
+  hours_left: number;
+}
+
+/**
+ * Rebuild a plan after some days were missed. The hours done come off each exam,
+ * the hours left are spread over the days from the start date, and an exam with
+ * topics takes the done hours off its topics in proportion to their hours.
+ */
+export function reschedulePlan(
+  exams: MissedDayExamInput[],
+  startDate: Date,
+  hoursPerDay: number,
+  daysOff: number[],
+  weekday?: WeekdayHours,
+): RescheduledPlan {
+  if (exams.length === 0) throw new Error("Add at least one exam.");
+  const rows = exams.map((e) => {
+    const t = topicPlan(e);
+    const need = t ? t.need : e.hours_needed ?? 10;
+    const raw = e.hours_done ?? 0;
+    if (!(raw >= 0)) throw new Error(`The hours_done for ${e.name} must be 0 or more, got ${raw}.`);
+    if (raw > need + 0.001) {
+      throw new Error(`The hours_done for ${e.name} is ${raw}h, but the exam needs ${need}h. Lower hours_done or raise the hours the exam needs.`);
+    }
+    const done = Math.min(HALF(raw), need);
+    if (!t) return { exam: e, date: parseDateInput(e.date), need, done, left: need - done, topics: undefined };
+    const parts = done > 0 ? splitTopicHours(t.topics, done) : [];
+    const topics = t.topics.map((x) => {
+      const used = parts.find((p) => p.name === x.name)?.hours ?? 0;
+      return { name: x.name, need: x.need, hours_done: HALF(used), hours_left: Math.max(0, x.left - used) };
+    });
+    const left = topics.reduce((s, x) => s + x.hours_left, 0);
+    return { exam: e, date: parseDateInput(e.date), need, done, left, topics };
+  });
+  const scheduled = rows.filter((r) => r.left > 0.001);
+  const plan: Plan = scheduled.length
+    ? studyPlan(
+        scheduled.map((r) =>
+          r.topics
+            ? { name: r.exam.name, date: r.exam.date, hours_needed: r.left, topics: r.topics.map((x) => ({ name: x.name, hours_needed: x.hours_left })) }
+            : { name: r.exam.name, date: r.exam.date, hours_needed: r.left },
+        ),
+        startDate,
+        hoursPerDay,
+        daysOff,
+        weekday,
+      )
+    : { days: [], short: [], exams: [] };
+  return {
+    days: plan.days,
+    short: plan.short,
+    hours_done: HALF(rows.reduce((s, r) => s + r.done, 0)),
+    hours_left: HALF(rows.reduce((s, r) => s + r.left, 0)),
+    exams: rows.map((r) => ({
+      name: r.exam.name,
+      date: r.date,
+      need: r.need,
+      hours_done: r.done,
+      hours_left: HALF(r.left),
+      ...(r.topics ? { topics: r.topics.map((x) => ({ ...x, hours_left: HALF(x.hours_left) })) } : {}),
+    })),
+  };
+}
+
 /**
  * Build a study plan. Each day gets the hours of its weekday when the caller set them,
  * and hoursPerDay on every other weekday. A weekday with 0 hours is a day off.

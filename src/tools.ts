@@ -16,7 +16,7 @@ function clock(mins: number): string {
   const m = mins % 60;
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
-import { examCountdown, milestones, nextReview, planForDay, plannedReviews, pomodoro, spacedDates, studyPlan, weekdayHours, weekdayIndex } from "./plan.js";
+import { examCountdown, milestones, nextReview, planForDay, plannedReviews, pomodoro, reschedulePlan, spacedDates, studyPlan, weekdayHours, weekdayIndex } from "./plan.js";
 
 type Api = null;
 
@@ -105,6 +105,26 @@ function examList(required: boolean) {
         ? `exams is required; ${EXAM_HINT}`
         : `exams must be a list of exams; ${EXAM_HINT}`,
   });
+}
+
+/** An exam that also says how many hours are already done, for the repair tool. */
+const missedExamItem = examItem.extend({
+  hours_done: numberField("hours_done", 3, 0)
+    .optional()
+    .describe("Hours you already studied for this exam, in half hour steps like 2 or 1.5. Defaults to 0."),
+});
+
+function missedExamList() {
+  return z
+    .array(missedExamItem, {
+      error: (iss) =>
+        iss.input === undefined
+          ? `exams is required; try exams: [{name: "Networking", date: "2026-12-12", hours_needed: 10, hours_done: 4}]`
+          : `exams must be a list of exams; try exams: [{name: "Networking", date: "2026-12-12", hours_needed: 10, hours_done: 4}]`,
+    })
+    .min(1, {
+      error: 'exams must have at least 1 exam; try exams: [{name: "Networking", date: "2026-12-12", hours_needed: 10, hours_done: 4}]',
+    });
 }
 
 function hoursPerDay() {
@@ -284,6 +304,47 @@ const core: ToolDef<Api>[] = [
         out += `\n\nReviews\n${bullets(reviewLines)}`;
       }
       if (plan.short.length) {
+        const short = plan.short.map((s) => {
+          const head = `${s.name} is ${s.hours}h short`;
+          if (!s.topics || s.topics.length === 0) return head;
+          return `${head}: ${s.topics.map((t) => `${t.name} ${t.hours}h short`).join(", ")}`;
+        });
+        out += `\n\nNot enough time. ${short.join(", ")}. Add study days, raise hours per day or hours per weekday, or lower the hours needed.`;
+      } else {
+        out += "\n\nEverything fits.";
+      }
+      return out;
+    },
+  },
+  {
+    name: "reschedule_missed_days",
+    title: "Reschedule missed days",
+    description:
+      "Rebuild a study plan after missed study days. Give each exam the hours you have already done and it takes those off the exam, then spreads the hours that are left over the days from start_date, using the same hours_per_day, hours_per_weekday and days_off as the plan tools. When an exam has topics, the hours done come off the topics in proportion to their hours. The answer shows the hours done and the hours left for each exam, and the repaired plan from start_date. Dates can be plain text, like Dec 12 or in 3 weeks. Example prompt: \"I missed three days and did 4 hours of networking. Reschedule the rest of my study.\"",
+    inputSchema: {
+      exams: missedExamList().describe("Exams with name, date, optional hours needed, optional topics, and hours_done for the hours you already studied."),
+      hours_per_day: hoursPerDay(),
+      hours_per_weekday: hoursPerWeekday(),
+      days_off: daysOff(),
+      start_date: dateField("start_date").optional().describe(`First day of the repaired plan. Defaults to today. ${DATE_HINT}`),
+    },
+    run: async (a) => {
+      const start = a.start_date ? parseDateInput(a.start_date) : today();
+      const plan = reschedulePlan(a.exams, start, a.hours_per_day, a.days_off.map(weekdayIndex), weekdayHours(a.hours_per_weekday));
+      const planLines = plan.days.map((d) => {
+        const head = `${label(d.date)}  ${d.items.map((i) => `${i.name} ${i.hours}h`).join(", ")}  (${d.items.reduce((s, i) => s + i.hours, 0)}h total)`;
+        return [head, ...dayTopicLines(d.items)].join("\n");
+      });
+      const exams = plan.exams.map((e) => {
+        const head = `${e.name} on ${label(e.date)}, ${e.hours_done}h done, ${e.hours_left}h left`;
+        if (!e.topics || e.topics.length === 0) return head;
+        return [head, ...e.topics.map((t) => `  - ${t.name} ${t.hours_done}h done, ${t.hours_left}h left`)].join("\n");
+      });
+      let out = `Exams\n${bullets(exams)}\n\nRescheduled from ${fmt(start)}`;
+      if (planLines.length) out += `\n${bullets(planLines)}`;
+      if (plan.hours_left <= 0.001) {
+        out += "\n\nAll planned hours are done.";
+      } else if (plan.short.length) {
         const short = plan.short.map((s) => {
           const head = `${s.name} is ${s.hours}h short`;
           if (!s.topics || s.topics.length === 0) return head;

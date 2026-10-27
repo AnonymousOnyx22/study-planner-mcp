@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createServer } from "../src/server.js";
-import { parseDate, fmt, studyPlan, pomodoro, milestones, spacedDates, nextReview, planForDay, examCountdown, weekdayHours, today, addDays } from "../src/plan.js";
+import { parseDate, fmt, studyPlan, reschedulePlan, pomodoro, milestones, spacedDates, nextReview, planForDay, examCountdown, weekdayHours, today, addDays } from "../src/plan.js";
 import { studyPlanIcs } from "../src/ics.js";
 
 let client: Client;
@@ -210,6 +210,52 @@ describe("topics inside an exam", () => {
   });
 });
 
+describe("reschedule missed days", () => {
+  it("takes the hours done off the exam and plans the rest", () => {
+    const plan = reschedulePlan([{ name: "Net", date: "2026-12-12", hours_needed: 10, hours_done: 4 }], parseDate("2026-12-09"), 2, [0]);
+    expect(plan.exams[0]).toEqual({ name: "Net", date: parseDate("2026-12-12"), need: 10, hours_done: 4, hours_left: 6 });
+    expect(plan.hours_done).toBe(4);
+    expect(plan.hours_left).toBe(6);
+    expect(dayTotals(plan.days)).toEqual(["2026-12-09 2h", "2026-12-10 2h", "2026-12-11 2h"]);
+    expect(plan.short).toEqual([]);
+  });
+  it("takes the hours done off the topics in proportion to their hours", () => {
+    const plan = reschedulePlan(
+      [{ name: "Net", date: "2026-12-10", topics: [{ name: "Routing", hours_needed: 6 }, { name: "Security", hours_needed: 6 }], hours_done: 4 }],
+      parseDate("2026-12-07"),
+      2,
+      [],
+    );
+    expect(plan.exams[0].topics).toEqual([
+      { name: "Routing", need: 6, hours_done: 2, hours_left: 4 },
+      { name: "Security", need: 6, hours_done: 2, hours_left: 4 },
+    ]);
+    expect(plan.hours_left).toBe(8);
+  });
+  it("says when the hours done are more than the exam needs", () => {
+    expect(() => reschedulePlan([{ name: "Net", date: "2026-12-12", hours_needed: 4, hours_done: 6 }], parseDate("2026-12-09"), 2, [])).toThrow("but the exam needs 4h");
+  });
+  it("plans nothing when every hour is done", () => {
+    const plan = reschedulePlan([{ name: "Net", date: "2026-12-12", hours_needed: 4, hours_done: 4 }], parseDate("2026-12-09"), 2, []);
+    expect(plan.days).toEqual([]);
+    expect(plan.hours_left).toBe(0);
+    expect(plan.short).toEqual([]);
+  });
+  it("leaves a done exam out of the plan even after its date", () => {
+    const plan = reschedulePlan(
+      [
+        { name: "Old", date: "2026-12-01", hours_needed: 4, hours_done: 4 },
+        { name: "New", date: "2026-12-12", hours_needed: 4 },
+      ],
+      parseDate("2026-12-09"),
+      2,
+      [],
+    );
+    expect(plan.exams.map((e) => e.hours_left)).toEqual([0, 4]);
+    expect(plan.days.reduce((s, d) => s + d.items.reduce((x, i) => x + i.hours, 0), 0)).toBe(4);
+  });
+});
+
 describe("calendar file", () => {
   const plan = studyPlan([{ name: "Net; Security, part 1", date: "2026-12-12", hours_needed: 6 }], parseDate("2026-12-07"), 2, [0]);
   const file = studyPlanIcs(plan, { includeExams: true, now: new Date(Date.UTC(2026, 10, 14, 9, 30)) });
@@ -258,7 +304,7 @@ describe("calendar file", () => {
 });
 
 describe("MCP tools", () => {
-  it("lists twelve read only tools", async () => {
+  it("lists thirteen read only tools", async () => {
     const tools = (await client.listTools()).tools;
     expect(tools.map((t) => t.name).sort()).toEqual([
       "assignment_milestones",
@@ -271,6 +317,7 @@ describe("MCP tools", () => {
       "next_review_dates",
       "plan_pomodoro_sessions",
       "pomodoro_plan",
+      "reschedule_missed_days",
       "spaced_repetition_dates",
       "what_to_study_today",
     ]);
@@ -287,6 +334,35 @@ describe("MCP tools", () => {
     const r = await call("make_study_plan", { exams: [{ name: "Networking", date: "2026-12-12", hours_needed: 6 }], start_date: "2026-12-07", hours_per_day: 2, days_off: ["sun"] });
     expect(r.text).toContain("Everything fits.");
     expect(r.text).toContain("2026-12-07 mon");
+  });
+  it("reschedules the hours left after missed days", async () => {
+    const r = await call("reschedule_missed_days", {
+      exams: [{ name: "Networking", date: "2026-12-12", hours_needed: 10, hours_done: 4 }],
+      start_date: "2026-12-09",
+      hours_per_day: 2,
+    });
+    expect(r.isError).toBe(false);
+    expect(r.text).toContain("Rescheduled from 2026-12-09");
+    expect(r.text).toContain("- Networking on 2026-12-12 sat, 4h done, 6h left");
+    expect(r.text).toContain("- 2026-12-09 wed  Networking 2h  (2h total)");
+    expect(r.text).toContain("Everything fits.");
+  });
+  it("says when the reschedule has no hours left", async () => {
+    const r = await call("reschedule_missed_days", {
+      exams: [{ name: "Networking", date: "2026-12-12", hours_needed: 4, hours_done: 4 }],
+      start_date: "2026-12-09",
+    });
+    expect(r.isError).toBe(false);
+    expect(r.text).toContain("All planned hours are done.");
+    expect(r.text).not.toContain("Everything fits.");
+  });
+  it("says when the hours done do not fit the exam", async () => {
+    const r = await call("reschedule_missed_days", {
+      exams: [{ name: "Networking", date: "2026-12-12", hours_needed: 4, hours_done: 6 }],
+      start_date: "2026-12-09",
+    });
+    expect(r.isError).toBe(true);
+    expect(r.text).toContain("but the exam needs 4h");
   });
   it("makes a plan with different hours for each weekday", async () => {
     const r = await call("build_study_plan", {
@@ -511,6 +587,7 @@ describe("MCP tools", () => {
       "export_study_plan_ics",
       "what_to_study_today",
       "exam_countdown",
+      "reschedule_missed_days",
     ];
     const older = ["make_study_plan", "spaced_repetition_dates", "pomodoro_plan", "assignment_milestones"];
     const lines = llms.split("\n");
@@ -774,6 +851,17 @@ describe("exam countdown tool", () => {
     expect(r.isError).toBe(false);
     expect(r.text).toBe(answer![1].trimEnd());
   });
+
+  it("shows a real reschedule in the README", async () => {
+    const section = readmeSection("Reschedule missed days");
+    const json = /Tool call:\n\n```json\n([\s\S]*?)```/.exec(section);
+    const answer = /The answer:\n\n```text\n([\s\S]*?)```/.exec(section);
+    expect(json?.[1]).toBeTruthy();
+    expect(answer?.[1]).toBeTruthy();
+    const r = await call("reschedule_missed_days", JSON.parse(json![1]));
+    expect(r.isError).toBe(false);
+    expect(r.text).toBe(answer![1].trimEnd());
+  });
 });
 
 describe("llms.txt worked examples", () => {
@@ -796,6 +884,7 @@ describe("llms.txt worked examples", () => {
       "export_study_plan_ics",
       "what_to_study_today",
       "exam_countdown",
+      "reschedule_missed_days",
     ]) {
       expect(named.has(name)).toBe(true);
     }

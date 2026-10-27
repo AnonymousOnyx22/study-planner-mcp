@@ -61,6 +61,10 @@
     {
       "name": "exam_countdown",
       "description": "Check whether you are on track for each exam. For every exam it gives the days left, the study days left, the hours still to study, the hours to put in on each study day and a plain On track or Behind verdict, using the same hours per day, hours per weekday and days off as the plan tools. Give from_date to count from a fixed day. Dates can be plain text, like Dec 12 or in 3 weeks. Example prompt: \"Am I on track for my exam on 2026-12-12 if I can study 2 hours a day?\""
+    },
+    {
+      "name": "reschedule_missed_days",
+      "description": "Rebuild a study plan after missed study days. Give each exam the hours you have already done and it takes those off the exam, then spreads the hours that are left over the days from start_date, using the same hours_per_day, hours_per_weekday and days_off as the plan tools. When an exam has topics, the hours done come off the topics in proportion to their hours. The answer shows the hours done and the hours left for each exam, and the repaired plan from start_date. Dates can be plain text, like Dec 12 or in 3 weeks. Example prompt: \"I missed three days and did 4 hours of networking. Reschedule the rest of my study.\""
     }
   ]
 }

@@ -141,6 +141,7 @@ After any of these, try one of the questions at the top of this page.
 | `export_study_plan_ics` | The same plan as an `.ics` calendar file, with one all day event per study session and one per exam, ready to open or import into Google Calendar or Apple Calendar |
 | `what_to_study_today` | What to study on one day: the study sessions from your plan for that day, the topic of each session when the exams have topics, plus the spaced repetition reviews that are due that day or are late |
 | `exam_countdown` | The days left, the study days left, the hours each exam still needs, the hours to put in on each study day and a plain On track or Behind verdict |
+| `reschedule_missed_days` | The plan rebuilt after days you missed: give the hours already done for each exam and it takes them off the exam, then spreads the hours left over the days from your new start date |
 
 The original names `make_study_plan`, `spaced_repetition_dates`, `pomodoro_plan` and `assignment_milestones` do the same four jobs with the same parameters, so existing configs and saved prompts keep working.
 
@@ -182,6 +183,7 @@ People search for a study planner with words like these, so here they are in one
 - revision schedule
 - revision plan
 - revision planner
+- reschedule study plan
 - exam schedule
 - exam timetable
 - exam planner
@@ -518,6 +520,36 @@ Networking, exam 2026-12-12 sat
 ```
 
 If the hours do not fit, the last line says Behind by the hours short, so you know how much time to add or how many hours to lower.
+
+## Reschedule missed days
+
+`reschedule_missed_days` is for the week that did not go to plan. Give each exam the hours you have already done with `hours_done`, say which day you are starting again with `start_date`, and it takes the done hours off each exam before it spreads the hours left over the days that remain. It uses the same `hours_per_day`, `hours_per_weekday` and `days_off` as `build_study_plan`, and an exam with topics takes the done hours off its topics in proportion to their hours. Use it when you need to reschedule study plan hours after a break, without counting the same work twice.
+
+Tool call:
+
+```json
+{
+  "exams": [{ "name": "Networking", "date": "2026-12-12", "hours_needed": 10, "hours_done": 4 }],
+  "hours_per_day": 2,
+  "start_date": "2026-12-09"
+}
+```
+
+The answer:
+
+```text
+Exams
+- Networking on 2026-12-12 sat, 4h done, 6h left
+
+Rescheduled from 2026-12-09
+- 2026-12-09 wed  Networking 2h  (2h total)
+- 2026-12-10 thu  Networking 2h  (2h total)
+- 2026-12-11 fri  Networking 2h  (2h total)
+
+Everything fits.
+```
+
+The four hours already done come off the ten the exam needs, so the repaired plan starts on Dec 9 with six hours left to study.
 
 ## Next review date
 
