@@ -518,7 +518,10 @@ The routing was first studied on Nov 27, so the first review fell on Nov 28 and 
 npm install
 npm run build
 npm test
+npm run demo
 ```
+
+`npm run demo` runs after the build and prints a sample plan for two exams, the what_to_study_today answer for one day and the first lines of the .ics file. It uses fixed dates, so the output is the same each time.
 
 Pass `start_date` in tools to get repeatable results. The tests call every tool through a real MCP client, so they need no account or network.
 
