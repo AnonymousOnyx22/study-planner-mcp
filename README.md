@@ -4,6 +4,20 @@ Offline exam planning for your AI: no account, no login, no internet needed, not
 
 Give it your exam dates and how many hours you can study, the same on every day or different for each weekday, and get back a day by day plan with spaced repetition review dates, pomodoro blocks with breaks, and dated milestones for a big assignment. Ask for a revision timetable, an exam schedule or the spaced repetition dates for a topic, and it works them out from your dates and your hours. The date math is done by tested code, not guessed by the model.
 
+## Why not just use Brightspace tools
+
+Brightspace and Canvas tools read your school site. They tell you what is due, what your grades are and what your teachers announced, and they need an account and a sign in. This server reads no site at all. You give it the exam dates and the hours you can study, and it works out the timetable, the review dates and the breaks. Run it next to an LMS server if you like: one tells you what is assigned, the other tells you how to study it.
+
+## Prompt gallery
+
+Copy and paste any of these into your AI app once the server is installed.
+
+- "Plan 3 weeks of study for my 4 exams"
+- "What should I study today?"
+- "When should I review what I learned today for my exam on Nov 30?"
+- "Plan 3 hours of studying as pomodoro blocks with breaks."
+- "Break my 6 hour essay due Friday into milestones."
+
 Ask it things like:
 
 - "I have a networking exam on Dec 12 and scripting on Dec 15. I can study 3 hours a day except Sundays. Make me a plan."
