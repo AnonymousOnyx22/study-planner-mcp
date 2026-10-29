@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.7
 
 - `make_study_plan` and `build_study_plan` start with a one line verdict, like `Everything fits: 2 exams, 12 study days, 36h`, so the answer comes before the full list of exams and study days.
 - Added `reschedule_missed_days`, which rebuilds a plan after days you missed. Give each exam the hours you already did with `hours_done` and it takes them off the exam, then spreads the hours left from `start_date` with the same hours per day, hours per weekday and days off as the plan tools. An exam with topics takes the done hours off its topics in proportion to their hours.
