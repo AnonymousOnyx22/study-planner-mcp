@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.8
+
+- Update the table of sibling MCP servers in the README
+
 ## 0.1.7
 
 - `make_study_plan` and `build_study_plan` start with a one line verdict, like `Everything fits: 2 exams, 12 study days, 36h`, so the answer comes before the full list of exams and study days.
