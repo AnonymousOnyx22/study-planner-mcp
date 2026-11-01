@@ -597,6 +597,46 @@ Next review for "Routing": 2026-11-30 mon, the 2nd review, in 1 day.
 
 The routing was first studied on Nov 27, so the first review fell on Nov 28 and has passed. The next one is Nov 30, and the review on Dec 27 is left out because it falls after the exam on Dec 12.
 
+## Troubleshooting
+
+When a tool call fails, the server sends back a short message that says what to change. These are the ones people hit most, with the text as it appears and the fix.
+
+### A date is not understood
+
+```text
+Invalid arguments for tool make_study_plan: exam_date must be a date, got "in a few weeks". "in a few weeks" is not a date I can read. Use 2026-12-12, or plain text like Dec 12, next Friday or in 3 weeks. Write the month as a name, like Dec 12 2026, when the day comes first.
+```
+
+Plain text dates like `in 3 weeks`, `next Friday` and `Dec 12` work, but the count has to be one number or one number word, so `in a few weeks` does not. Give a number (`in 3 weeks`) or a full date like `2026-12-12`. If a message says a month or weekday could be two names, write it out in full.
+
+### The exam is not after the start date
+
+```text
+Networking is on 2026-10-01, which is not after the start date 2026-11-01.
+```
+
+The exam date is today or already past, so there is no day left to study. Check the year, because a date written as `Oct 1` means the next Oct 1 but `2026-10-01` is taken as written. If you are rebuilding a plan after missing days, use reschedule_missed_days instead.
+
+### Hours per day is zero
+
+```text
+Invalid arguments for tool make_study_plan: hours_per_day must be greater than 0; try hours_per_day: 3
+```
+
+hours_per_day has to be above 0 and at most 16. To skip a day, leave it out with `days_off: ["sun"]`, or give a weekday 0 hours in `hours_per_weekday`, like `[{day: "sun", hours: 0}]`.
+
+### Topic hours do not match the exam
+
+```text
+The exam Networking needs 6h but its topics add up to 5h. Make the exam hours match the topics, or leave hours_needed out of the exam.
+```
+
+When an exam has topics, either give hours to every topic and leave hours_needed off the exam, or give hours_needed on the exam and let the topics share it evenly.
+
+### The server does not show up in your app
+
+Run `npm run build` if you installed from source, then restart the app after editing its config. The Install section above has the exact config for each app.
+
 ## Development
 
 ```bash
