@@ -10,6 +10,8 @@ export interface ToolDef<Api> {
   description: string;
   inputSchema: Shape;
   run: (args: any, api: Api) => Promise<string>;
+  /** Extra hints merged over the defaults, such as idempotentHint. */
+  annotations?: { idempotentHint?: boolean; destructiveHint?: boolean };
 }
 
 export interface ToolResult {
@@ -53,7 +55,7 @@ export function registerTools<Api>(server: McpServer, tools: ToolDef<Api>[], api
         title: tool.title,
         description: tool.description,
         inputSchema: tool.inputSchema,
-        annotations: { readOnlyHint: true, openWorldHint: false },
+        annotations: { readOnlyHint: true, openWorldHint: false, ...tool.annotations },
       },
       async (args: unknown) => runTool(tool, args, api),
     );

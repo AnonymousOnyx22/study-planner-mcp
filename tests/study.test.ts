@@ -323,6 +323,13 @@ describe("MCP tools", () => {
     ]);
     for (const t of tools) expect(t.annotations?.readOnlyHint).toBe(true);
   });
+  it("marks every tool as idempotent and not destructive", async () => {
+    const tools = (await client.listTools()).tools;
+    for (const t of tools) {
+      expect(t.annotations?.idempotentHint).toBe(true);
+      expect(t.annotations?.destructiveHint).toBe(false);
+    }
+  });
   it("describes every tool as a study plan job", async () => {
     const tools = (await client.listTools()).tools;
     for (const t of tools) {

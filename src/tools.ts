@@ -271,7 +271,9 @@ function itemTopicLines(item: { name: string; hours: number; topics?: { name: st
   return [`  - ${item.topics.map((t) => `${t.name} ${t.hours}h`).join(", ")}`];
 }
 
-const core: ToolDef<Api>[] = [
+const pureHints = { idempotentHint: true, destructiveHint: false };
+
+const core: ToolDef<Api>[] = ([
   {
     name: "make_study_plan",
     title: "Make a study plan",
@@ -624,12 +626,12 @@ const core: ToolDef<Api>[] = [
       return `Exam countdown from ${label(from)}\n\n${blocks.join("\n\n")}`;
     },
   },
-];
+] as ToolDef<Api>[]).map((t) => ({ ...t, annotations: pureHints }));
 
 function alias(of: string, name: string, title: string, description: string): ToolDef<Api> {
   const base = core.find((t) => t.name === of);
   if (!base) throw new Error(`No tool named ${of} to alias.`);
-  return { name, title, description, inputSchema: base.inputSchema, run: base.run };
+  return { name, title, description, inputSchema: base.inputSchema, run: base.run, annotations: base.annotations };
 }
 
 export const tools: ToolDef<Api>[] = [

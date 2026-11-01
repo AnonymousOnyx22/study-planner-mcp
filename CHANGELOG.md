@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Every tool now reports idempotentHint true and destructiveHint false, so clients can approve calls like pomodoro_plan and export_study_plan_ics without asking each time.
+
 - Argument errors that list several problems now put each one on its own line instead of showing a literal `\n` between them.
 
 ## 0.1.9
