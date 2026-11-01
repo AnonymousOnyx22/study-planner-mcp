@@ -331,6 +331,26 @@ const rescheduleOutput = {
   short: makePlanOutput.short,
 };
 
+type DayItem = { name: string; hours: number; topics?: { name: string; hours: number }[] };
+
+const todayOutput = {
+  date: z.string().describe("The day asked about, as YYYY-MM-DD."),
+  sessions: z.object({
+    date: z.string().nullable().describe("The study day shown, as YYYY-MM-DD, or null when there is none."),
+    is_today: z.boolean().describe("True when the sessions are for the day asked about, false when they are the next study day."),
+    total_hours: z.number(),
+    items: z.array(z.object({ name: z.string(), hours: z.number(), topics: z.array(topicHours).optional() })),
+  }),
+  short: makePlanOutput.short,
+  reviews_due: z.array(z.object({ topic: z.string(), number: z.number(), due_date: z.string() })),
+  reviews_catch_up: z.array(z.object({ topic: z.string(), number: z.number(), due_date: z.string(), days_late: z.number() })),
+  next_reviews: z.array(z.object({ topic: z.string(), number: z.number(), date: z.string() })),
+  next_exam: z
+    .object({ name: z.string(), date: z.string(), days_left: z.number() })
+    .nullable()
+    .describe("The nearest exam on or after the day asked about, or null."),
+};
+
 const pureHints ={ idempotentHint: true, destructiveHint: false };
 
 const core: ToolDef<Api>[] = ([
@@ -624,6 +644,7 @@ const core: ToolDef<Api>[] = ([
         .default([1, 3, 7, 14, 30])
         .describe("Days after the first study to review."),
     },
+    outputSchema: todayOutput,
     run: async (a) => {
       const day = a.date ? parseDateInput(a.date) : today();
       const start = a.start_date ? parseDateInput(a.start_date) : day;
@@ -632,18 +653,24 @@ const core: ToolDef<Api>[] = ([
       const out: string[] = [`Today ${label(day)}`];
 
       let nextExam: { name: string; date: Date; left: number } | undefined;
+      let sessions: { date: string | null; is_today: boolean; total_hours: number; items: DayItem[] } = { date: null, is_today: false, total_hours: 0, items: [] };
+      let shortList: { name: string; hours: number; topics?: { name: string; hours: number }[] }[] = [];
+      const sessionItems = (items: DayItem[]) => items.map((i) => ({ name: i.name, hours: i.hours, ...(i.topics?.length ? { topics: i.topics } : {}) }));
       if (exams.length) {
         const plan = planForDay(exams, start, day, a.hours_per_day, a.days_off.map(weekdayIndex), weekdayHours(a.hours_per_weekday));
         if (plan.day) {
           const total = plan.day.items.reduce((s, i) => s + i.hours, 0);
+          sessions = { date: fmt(plan.day.date), is_today: true, total_hours: total, items: sessionItems(plan.day.items) };
           out.push("", `Study sessions, ${total}h total`, bullets(plan.day.items.map((i) => [i.name + " " + i.hours + "h", ...itemTopicLines(i)].join("\n"))));
         } else if (plan.next) {
           const total = plan.next.items.reduce((s, i) => s + i.hours, 0);
+          sessions = { date: fmt(plan.next.date), is_today: false, total_hours: total, items: sessionItems(plan.next.items) };
           const when = start.getTime() > day.getTime() ? `The plan starts on ${label(plan.next.date)}` : `Next study day ${label(plan.next.date)}`;
           out.push("", `No study session today. ${when}, ${total}h total`, bullets(plan.next.items.map((i) => [i.name + " " + i.hours + "h", ...itemTopicLines(i)].join("\n"))));
         } else {
           out.push("", "No study session today.");
         }
+        shortList = plan.short;
         if (plan.short.length) {
           const short = plan.short.map((s) => {
             const head = `${s.name} is ${s.hours}h short`;
@@ -690,7 +717,16 @@ const core: ToolDef<Api>[] = ([
         const left = nextExam.left > 0 ? `, ${nextExam.left} days left` : ", today";
         out.push("", `Next exam: ${nextExam.name} on ${label(nextExam.date)}${left}.`);
       }
-      return out.join("\n");
+      const structured = {
+        date: fmt(day),
+        sessions,
+        short: shortList.map((s) => ({ name: s.name, hours_short: s.hours, ...(s.topics?.length ? { topics: s.topics } : {}) })),
+        reviews_due: onTime.map((d) => ({ topic: d.topic, number: d.n, due_date: fmt(d.date) })),
+        reviews_catch_up: late.map((d) => ({ topic: d.topic, number: d.n, due_date: fmt(d.date), days_late: d.late })),
+        next_reviews: next.map((n) => ({ topic: n.topic, number: n.n, date: fmt(n.date) })),
+        next_exam: nextExam ? { name: nextExam.name, date: fmt(nextExam.date), days_left: nextExam.left } : null,
+      };
+      return { text: out.join("\n"), structured };
     },
   },
   {

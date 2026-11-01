@@ -131,6 +131,26 @@ describe("structured output", () => {
     expect(s.days[0].date).toBe("2026-12-07");
   });
 
+  it("what_to_study_today returns sessions, reviews and the next exam as fields", async () => {
+    const t = tool("what_to_study_today");
+    const r = await runTool(
+      t,
+      { date: "2026-12-07", exams, hours_per_day: 2, reviews: [{ topic: "Routing", first_study_date: "2026-12-01" }] },
+      null,
+    );
+    expect(r.isError).toBeUndefined();
+    const s = z.object(t.outputSchema!).parse(r.structuredContent) as any;
+    expect(s.sessions.date).toBe("2026-12-07");
+    expect(s.sessions.is_today).toBe(true);
+    expect(s.sessions.total_hours).toBe(2);
+    expect(s.reviews_catch_up[0]).toMatchObject({ topic: "Routing", number: 1, days_late: 5 });
+    expect(s.next_exam).toEqual({ name: "Networking", date: "2026-12-12", days_left: 5 });
+    const empty = await runTool(t, { date: "2026-12-07" }, null);
+    const e = z.object(t.outputSchema!).parse(empty.structuredContent) as any;
+    expect(e.sessions.date).toBeNull();
+    expect(e.next_exam).toBeNull();
+  });
+
   it("build_study_plan shares the schema and tools without one return text only", async () => {
     expect(tool("build_study_plan").outputSchema).toBe(tool("make_study_plan").outputSchema);
     const r = await runTool(tool("pomodoro_plan"), { total_minutes: 50 }, null);

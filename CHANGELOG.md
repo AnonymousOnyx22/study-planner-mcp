@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `what_to_study_today` now also returns structured data with an output schema. The sessions for the day, the reviews due, the reviews to catch up, the next reviews and the next exam are plain fields. The text answer is the same as before.
+
 - `make_study_plan`, `build_study_plan` and `exam_countdown` now also return structured data next to the text, with an output schema. Daily hours, days left, hours short and the on track verdict are plain fields, so a client does not have to read the text. The text answer is the same as before.
 
 - `reschedule_missed_days` now also returns structured data with an output schema. The hours done, the hours left, each exam and the repaired days are plain fields. The text answer is the same as before.
