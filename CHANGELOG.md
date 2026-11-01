@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.9
 
 - Tools now report that they do not reach outside the server (`openWorldHint` is false), so clients should stop warning about or asking permission for network access. The server works fully offline.
 
