@@ -23,7 +23,7 @@ function parseErrorMessage(err: unknown): string {
     const issues = (err as { issues: { message: string; path?: unknown[] }[] }).issues;
     return issues
       .map((i) => (i.path && i.path.length ? `${i.message} at ${i.path.join(".")}` : i.message))
-      .join("\\n");
+      .join("\n");
   }
   if (err instanceof Error) return err.message;
   return String(err);
