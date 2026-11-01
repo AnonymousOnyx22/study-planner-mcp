@@ -4,6 +4,8 @@
 
 - `make_study_plan`, `build_study_plan` and `exam_countdown` now also return structured data next to the text, with an output schema. Daily hours, days left, hours short and the on track verdict are plain fields, so a client does not have to read the text. The text answer is the same as before.
 
+- `reschedule_missed_days` now also returns structured data with an output schema. The hours done, the hours left, each exam and the repaired days are plain fields. The text answer is the same as before.
+
 - Every tool now reports idempotentHint true and destructiveHint false, so clients can approve calls like pomodoro_plan and export_study_plan_ics without asking each time.
 
 - Argument errors that list several problems now put each one on its own line instead of showing a literal `\n` between them.

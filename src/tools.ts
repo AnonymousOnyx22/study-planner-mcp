@@ -313,7 +313,25 @@ const countdownOutput = {
   ),
 };
 
-const pureHints = { idempotentHint: true, destructiveHint: false };
+const rescheduleOutput = {
+  start_date: z.string().describe("First day of the repaired plan, as YYYY-MM-DD."),
+  fits: z.boolean().describe("True when every exam gets all its hours left."),
+  hours_done: z.number().describe("Hours already done over all exams."),
+  hours_left: z.number().describe("Hours still to study over all exams."),
+  exams: z.array(
+    z.object({
+      name: z.string(),
+      date: z.string().describe("Exam date, as YYYY-MM-DD."),
+      hours_done: z.number(),
+      hours_left: z.number(),
+      topics: z.array(z.object({ name: z.string(), hours_done: z.number(), hours_left: z.number() })).optional(),
+    }),
+  ),
+  days: makePlanOutput.days,
+  short: makePlanOutput.short,
+};
+
+const pureHints ={ idempotentHint: true, destructiveHint: false };
 
 const core: ToolDef<Api>[] = ([
   {
@@ -394,6 +412,7 @@ const core: ToolDef<Api>[] = ([
       days_off: daysOff(),
       start_date: dateField("start_date").optional().describe(`First day of the repaired plan. Defaults to today. ${DATE_HINT}`),
     },
+    outputSchema: rescheduleOutput,
     run: async (a) => {
       const start = a.start_date ? parseDateInput(a.start_date) : today();
       const plan = reschedulePlan(a.exams, start, a.hours_per_day, a.days_off.map(weekdayIndex), weekdayHours(a.hours_per_weekday));
@@ -420,7 +439,28 @@ const core: ToolDef<Api>[] = ([
       } else {
         out += "\n\nEverything fits.";
       }
-      return out;
+      const structured = {
+        start_date: fmt(start),
+        fits: plan.short.length === 0,
+        hours_done: plan.hours_done,
+        hours_left: plan.hours_left,
+        exams: plan.exams.map((e) => ({
+          name: e.name,
+          date: fmt(e.date),
+          hours_done: e.hours_done,
+          hours_left: e.hours_left,
+          ...(e.topics?.length
+            ? { topics: e.topics.map((t) => ({ name: t.name, hours_done: t.hours_done, hours_left: t.hours_left })) }
+            : {}),
+        })),
+        days: plan.days.map((d) => ({
+          date: fmt(d.date),
+          total_hours: d.items.reduce((s, i) => s + i.hours, 0),
+          items: d.items.map((i) => ({ name: i.name, hours: i.hours, ...(i.topics?.length ? { topics: i.topics } : {}) })),
+        })),
+        short: plan.short.map((s) => ({ name: s.name, hours_short: s.hours, ...(s.topics?.length ? { topics: s.topics } : {}) })),
+      };
+      return { text: out, structured };
     },
   },
   {

@@ -120,6 +120,17 @@ describe("structured output", () => {
     expect(s.exams[0].on_track).toBe(true);
   });
 
+  it("reschedule_missed_days returns hours done, hours left and the repaired days", async () => {
+    const t = tool("reschedule_missed_days");
+    const r = await runTool(t, { exams: [{ ...exams[0], hours_done: 2 }], hours_per_day: 2, start_date: "2026-12-07" }, null);
+    expect(r.isError).toBeUndefined();
+    const s = z.object(t.outputSchema!).parse(r.structuredContent) as any;
+    expect(s.hours_done).toBe(2);
+    expect(s.hours_left).toBe(4);
+    expect(s.fits).toBe(true);
+    expect(s.days[0].date).toBe("2026-12-07");
+  });
+
   it("build_study_plan shares the schema and tools without one return text only", async () => {
     expect(tool("build_study_plan").outputSchema).toBe(tool("make_study_plan").outputSchema);
     const r = await runTool(tool("pomodoro_plan"), { total_minutes: 50 }, null);
