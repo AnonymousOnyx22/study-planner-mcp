@@ -53,7 +53,7 @@ export function registerTools<Api>(server: McpServer, tools: ToolDef<Api>[], api
         title: tool.title,
         description: tool.description,
         inputSchema: tool.inputSchema,
-        annotations: { readOnlyHint: true, openWorldHint: true },
+        annotations: { readOnlyHint: true, openWorldHint: false },
       },
       async (args: unknown) => runTool(tool, args, api),
     );
