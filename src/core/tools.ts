@@ -9,7 +9,9 @@ export interface ToolDef<Api> {
   title: string;
   description: string;
   inputSchema: Shape;
-  run: (args: any, api: Api) => Promise<string>;
+  /** Shape of the structuredContent the tool returns next to its text, if it returns any. */
+  outputSchema?: Shape;
+  run: (args: any, api: Api) => Promise<string | { text: string; structured: Record<string, unknown> }>;
   /** Extra hints merged over the defaults, such as idempotentHint. */
   annotations?: { idempotentHint?: boolean; destructiveHint?: boolean };
 }
@@ -17,6 +19,7 @@ export interface ToolDef<Api> {
 export interface ToolResult {
   [key: string]: unknown;
   content: { type: "text"; text: string }[];
+  structuredContent?: Record<string, unknown>;
   isError?: boolean;
 }
 
@@ -39,8 +42,9 @@ export async function runTool<Api>(tool: ToolDef<Api>, args: unknown, api: Api):
     return { content: [{ type: "text", text: msg }], isError: true };
   }
   try {
-    const text = await tool.run(parsed.data, api);
-    return { content: [{ type: "text", text }] };
+    const out = await tool.run(parsed.data, api);
+    if (typeof out === "string") return { content: [{ type: "text", text: out }] };
+    return { content: [{ type: "text", text: out.text }], structuredContent: out.structured };
   } catch (err) {
     const msg = err instanceof ApiError ? err.message : `Something went wrong: ${(err as Error).message}`;
     return { content: [{ type: "text", text: msg }], isError: true };
@@ -55,6 +59,7 @@ export function registerTools<Api>(server: McpServer, tools: ToolDef<Api>[], api
         title: tool.title,
         description: tool.description,
         inputSchema: tool.inputSchema,
+        ...(tool.outputSchema ? { outputSchema: tool.outputSchema } : {}),
         annotations: { readOnlyHint: true, openWorldHint: false, ...tool.annotations },
       },
       async (args: unknown) => runTool(tool, args, api),

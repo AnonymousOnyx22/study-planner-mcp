@@ -271,6 +271,48 @@ function itemTopicLines(item: { name: string; hours: number; topics?: { name: st
   return [`  - ${item.topics.map((t) => `${t.name} ${t.hours}h`).join(", ")}`];
 }
 
+const topicHours = z.object({ name: z.string(), hours: z.number() });
+
+const makePlanOutput = {
+  start_date: z.string().describe("First day of the plan, as YYYY-MM-DD."),
+  fits: z.boolean().describe("True when every exam gets all its hours."),
+  total_hours: z.number().describe("Hours planned over all study days."),
+  exams: z.array(
+    z.object({
+      name: z.string(),
+      date: z.string().describe("Exam date, as YYYY-MM-DD."),
+      hours_planned: z.number(),
+      topics: z.array(z.object({ name: z.string(), hours_planned: z.number() })).optional(),
+    }),
+  ),
+  days: z.array(
+    z.object({
+      date: z.string().describe("Study day, as YYYY-MM-DD."),
+      total_hours: z.number(),
+      items: z.array(z.object({ name: z.string(), hours: z.number(), topics: z.array(topicHours).optional() })),
+    }),
+  ),
+  short: z.array(z.object({ name: z.string(), hours_short: z.number(), topics: z.array(topicHours).optional() })),
+};
+
+const countdownOutput = {
+  from_date: z.string().describe("The day counted from, as YYYY-MM-DD."),
+  exams: z.array(
+    z.object({
+      name: z.string(),
+      date: z.string().describe("Exam date, as YYYY-MM-DD."),
+      days_left: z.number(),
+      study_days_left: z.number(),
+      hours_needed: z.number(),
+      hours_per_study_day: z.number(),
+      hours_short: z.number(),
+      on_track: z.boolean(),
+      passed: z.boolean(),
+      topics: z.array(z.object({ name: z.string(), need: z.number(), hours_short: z.number() })).optional(),
+    }),
+  ),
+};
+
 const pureHints = { idempotentHint: true, destructiveHint: false };
 
 const core: ToolDef<Api>[] = ([
@@ -280,6 +322,7 @@ const core: ToolDef<Api>[] = ([
     description:
       "Build a day by day study plan for one or more exams. Daily hours are shared across exams by urgency, study stops the day before each exam, and the answer warns when there is not enough time. Set hours_per_weekday when your weekdays and your weekend differ, and give an exam topics with their own hours to get the topic of each day as well. Add reviews with the day you first studied each one to show Review: entries in the plan and in the calendar. Dates can be plain text, like Dec 12 or in 3 weeks. Example prompt: \"Plan 3 weeks of study for my 4 exams, 90 minutes a day.\"",
     inputSchema: { ...planFields(), ...planReviewFields() },
+    outputSchema: makePlanOutput,
     run: async (a) => {
       const start = a.start_date ? parseDateInput(a.start_date) : today();
       const plan = studyPlan(a.exams, start, a.hours_per_day, a.days_off.map(weekdayIndex), weekdayHours(a.hours_per_weekday));
@@ -319,7 +362,24 @@ const core: ToolDef<Api>[] = ([
       } else {
         out += "\n\nEverything fits.";
       }
-      return out;
+      const structured = {
+        start_date: fmt(start),
+        fits,
+        total_hours: total,
+        exams: plan.exams.map((e) => ({
+          name: e.name,
+          date: fmt(e.date),
+          hours_planned: e.need,
+          ...(e.topics?.length ? { topics: e.topics.map((t) => ({ name: t.name, hours_planned: t.need })) } : {}),
+        })),
+        days: plan.days.map((d) => ({
+          date: fmt(d.date),
+          total_hours: d.items.reduce((s, i) => s + i.hours, 0),
+          items: d.items.map((i) => ({ name: i.name, hours: i.hours, ...(i.topics?.length ? { topics: i.topics } : {}) })),
+        })),
+        short: plan.short.map((s) => ({ name: s.name, hours_short: s.hours, ...(s.topics?.length ? { topics: s.topics } : {}) })),
+      };
+      return { text: out, structured };
     },
   },
   {
@@ -607,6 +667,7 @@ const core: ToolDef<Api>[] = ([
       days_off: daysOff(),
       from_date: dateField("from_date").optional().describe(`The day to count from. Defaults to today. ${DATE_HINT}`),
     },
+    outputSchema: countdownOutput,
     run: async (a) => {
       const from = a.from_date ? parseDateInput(a.from_date) : today();
       const rows = examCountdown(a.exams, from, a.hours_per_day, a.days_off.map(weekdayIndex), weekdayHours(a.hours_per_weekday));
@@ -623,7 +684,22 @@ const core: ToolDef<Api>[] = ([
         const topics = r.topics?.map((t) => `${t.name} ${t.need}h needed${t.hours_short > 0 ? `, ${t.hours_short}h short` : ""}`).join(", ");
         return `${r.name}, exam ${label(r.date)}\n${bullets(lines)}${topics ? `\n  - ${topics}` : ""}`;
       });
-      return `Exam countdown from ${label(from)}\n\n${blocks.join("\n\n")}`;
+      const structured = {
+        from_date: fmt(from),
+        exams: rows.map((r) => ({
+          name: r.name,
+          date: fmt(r.date),
+          days_left: r.days_left,
+          study_days_left: r.study_days_left,
+          hours_needed: r.hours_needed,
+          hours_per_study_day: r.hours_per_study_day,
+          hours_short: r.hours_short,
+          on_track: r.on_track,
+          passed: r.passed,
+          ...(r.topics?.length ? { topics: r.topics } : {}),
+        })),
+      };
+      return { text: `Exam countdown from ${label(from)}\n\n${blocks.join("\n\n")}`, structured };
     },
   },
 ] as ToolDef<Api>[]).map((t) => ({ ...t, annotations: pureHints }));
@@ -631,7 +707,7 @@ const core: ToolDef<Api>[] = ([
 function alias(of: string, name: string, title: string, description: string): ToolDef<Api> {
   const base = core.find((t) => t.name === of);
   if (!base) throw new Error(`No tool named ${of} to alias.`);
-  return { name, title, description, inputSchema: base.inputSchema, run: base.run, annotations: base.annotations };
+  return { name, title, description, inputSchema: base.inputSchema, outputSchema: base.outputSchema, run: base.run, annotations: base.annotations };
 }
 
 export const tools: ToolDef<Api>[] = [

@@ -97,3 +97,32 @@ describe("runTool run errors", () => {
     expect(called).toBe(false);
   });
 });
+
+describe("structured output", () => {
+  const exams = [{ name: "Networking", date: "2026-12-12", hours_needed: 6 }];
+
+  it("make_study_plan returns structuredContent that matches its outputSchema", async () => {
+    const t = tool("make_study_plan");
+    const r = await runTool(t, { exams, hours_per_day: 2, start_date: "2026-12-07" }, null);
+    expect(r.isError).toBeUndefined();
+    expect(r.content[0].text).toContain("Everything fits");
+    const s = z.object(t.outputSchema!).parse(r.structuredContent) as any;
+    expect(s.fits).toBe(true);
+    expect(s.total_hours).toBe(6);
+    expect(s.days[0].date).toBe("2026-12-07");
+  });
+
+  it("exam_countdown returns days left and the verdict as fields", async () => {
+    const t = tool("exam_countdown");
+    const r = await runTool(t, { exams, hours_per_day: 2, from_date: "2026-12-07" }, null);
+    const s = z.object(t.outputSchema!).parse(r.structuredContent) as any;
+    expect(s.exams[0].days_left).toBe(5);
+    expect(s.exams[0].on_track).toBe(true);
+  });
+
+  it("build_study_plan shares the schema and tools without one return text only", async () => {
+    expect(tool("build_study_plan").outputSchema).toBe(tool("make_study_plan").outputSchema);
+    const r = await runTool(tool("pomodoro_plan"), { total_minutes: 50 }, null);
+    expect(r.structuredContent).toBeUndefined();
+  });
+});
